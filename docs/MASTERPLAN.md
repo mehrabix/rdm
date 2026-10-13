@@ -391,11 +391,11 @@ DRM circumvention.
 Workspace, `rdm-core` engine (probe, plan, segmented download, resume, speed),
 Dioxus desktop shell, Tailwind + rust-ui primitives, docs, CI-ready tests.
 
-**Phase 1 — Make it a daily driver** *(mostly shipped)*
-✅ Global speed limiter (`RateLimiter`, live-updatable); ✅ queue persisted to
+**Phase 1 — Make it a daily driver** *(shipped)*
+✅ Global and per-download speed limiters (live-updatable); ✅ queue persisted to
 `~/.local/share/rdm/queue.json` and restored (paused) on launch; ✅ per-download
-detail panel (segment map + HTTP headers); ✅ throughput graph. Remaining: live
-dynamic segmentation and a per-download speed limit.
+detail panel (segment map + HTTP headers); ✅ throughput graph; ✅ live dynamic
+segmentation (the largest remaining segment is split as workers free up).
 
 **Phase 1.5 — UI completeness** *(shipped)*
 In-app menu bar; Options dialog (General / Downloads / Connection live, the rest

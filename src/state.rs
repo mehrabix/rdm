@@ -244,16 +244,8 @@ impl Downloads {
         let queue = self.queue.read().clone();
         let mut spec = DownloadSpec::new(url, dir).connections(connections);
         spec.queue = queue;
-
-        if organize {
-            // Put the file in a per-category subfolder (IDM style). The file name
-            // — and therefore the category — is only known after probing.
-            if let Ok(info) = engine().probe(&spec).await {
-                let target = spec.output_dir.join(Category::from_filename(&info.file_name).folder());
-                let _ = tokio::fs::create_dir_all(&target).await;
-                spec.output_dir = target;
-            }
-        }
+        // The engine picks the per-category folder after it probes.
+        spec.organize = organize;
 
         engine().add(spec).await.map(|_| ())
     }

@@ -299,8 +299,69 @@ impl DownloadManager {
         http::probe(&self.client, &spec.url, &opts).await
     }
 
-    /// Probe a URL, then queue and start a transfer. Returns the new id.
+    /// Queue and start a transfer. Returns the new id *immediately* — the probe
+    /// and segment plan happen in the background, so the UI never stalls on a
+    /// slow server.
     pub async fn add(self: &Arc<Self>, spec: DownloadSpec) -> Result<String> {
+        let mut spec = spec;
+        if !(spec.url.starts_with("http://") || spec.url.starts_with("https://")) {
+            return Err(Error::invalid("only http(s) URLs are supported"));
+        }
+        let dir = spec.output_dir.clone();
+        tokio::fs::create_dir_all(&dir).await?;
+
+        // A provisional name from the URL gives the row something to show until
+        // the probe refines it (unless the caller named the file).
+        if spec.file_name.is_none() {
+            spec.file_name = Some(util::filename_from_url(&spec.url));
+        }
+
+        let id = uuid::Uuid::new_v4().to_string();
+        let category = spec
+            .file_name
+            .as_deref()
+            .map(Category::from_filename)
+            .unwrap_or(Category::Other);
+        let speed_limit = spec.speed_limit;
+        let task = DownloadTask {
+            id: id.clone(),
+            spec,
+            status: DownloadStatus::Queued,
+            total: None,
+            remote: None,
+            segments: Vec::new(),
+            downloaded: 0,
+            speed: 0.0,
+            eta_secs: None,
+            category,
+            error: None,
+            created_at: now(),
+            completed_at: None,
+        };
+
+        self.tasks.write().await.insert(id.clone(), task.clone());
+        self.controls
+            .lock()
+            .await
+            .insert(id.clone(), Control::new(speed_limit));
+        let _ = self.events.send(EngineEvent::Added { task });
+        self.spawn(id.clone());
+        Ok(id)
+    }
+
+    /// Probe the URL and lay out the segment plan; decides the final file name
+    /// and, when requested, the per-category folder. Runs inside the transfer
+    /// task so [`add`](Self::add) stays instant.
+    async fn probe_and_plan(&self, id: &str) -> Result<()> {
+        let spec = {
+            let tasks = self.tasks.read().await;
+            match tasks.get(id) {
+                Some(task) => task.spec.clone(),
+                None => return Ok(()),
+            }
+        };
+        self.set_status(id, DownloadStatus::Probing).await;
+
         let opts = RequestOptions::from_spec(&spec);
         let remote = http::probe(&self.client, &spec.url, &opts).await?;
         tracing::info!(
@@ -315,52 +376,50 @@ impl DownloadManager {
         } else {
             spec.connections
         };
-
         let segments = match remote.total_size {
             Some(total) if remote.accept_ranges => segment::plan(total, requested),
             Some(total) => segment::plan(total, 1),
             None => Vec::new(),
         };
 
-        let mut spec = spec;
-        let dir = spec.output_dir.clone();
-        tokio::fs::create_dir_all(&dir).await?;
-        let base_name = spec
-            .file_name
-            .clone()
-            .unwrap_or_else(|| util::sanitize_filename(&remote.file_name));
-        let unique = util::unique_path(&dir, &base_name);
-        spec.file_name = unique
+        // Resolve the final name/dir before taking the lock (no await inside it).
+        let provisional = util::filename_from_url(&spec.url);
+        let server_name = util::sanitize_filename(&remote.file_name);
+        let chosen = if !server_name.is_empty() && spec.file_name.as_deref() == Some(provisional.as_str())
+        {
+            server_name
+        } else {
+            spec.file_name.clone().unwrap_or(provisional)
+        };
+        let unique = util::unique_path(&spec.output_dir, &chosen);
+        let final_name = unique
             .file_name()
             .and_then(|s| s.to_str())
-            .map(str::to_string);
+            .map(str::to_string)
+            .unwrap_or(chosen);
+        let category = Category::from_filename(&final_name);
+        let mut output_dir = spec.output_dir.clone();
+        if spec.organize {
+            let target = output_dir.join(category.folder());
+            let _ = tokio::fs::create_dir_all(&target).await;
+            output_dir = target;
+        }
 
-        let id = uuid::Uuid::new_v4().to_string();
-        let category = Category::from_filename(&base_name);
-        let task = DownloadTask {
-            id: id.clone(),
-            spec,
-            status: DownloadStatus::Queued,
-            total: remote.total_size,
-            remote: Some(remote),
-            segments,
-            downloaded: 0,
-            speed: 0.0,
-            eta_secs: None,
-            category,
-            error: None,
-            created_at: now(),
-            completed_at: None,
-        };
-
-        self.tasks.write().await.insert(id.clone(), task.clone());
-        self.controls
-            .lock()
-            .await
-            .insert(id.clone(), Control::new(task.spec.speed_limit));
-        let _ = self.events.send(EngineEvent::Added { task });
-        self.spawn(id.clone());
-        Ok(id)
+        let mut tasks = self.tasks.write().await;
+        if let Some(task) = tasks.get_mut(id) {
+            task.spec.file_name = Some(final_name);
+            task.spec.output_dir = output_dir;
+            task.category = category;
+            task.total = remote.total_size;
+            task.remote = Some(remote);
+            task.segments = segments;
+        }
+        let snapshot = tasks.get(id).cloned();
+        drop(tasks);
+        if let Some(task) = snapshot {
+            let _ = self.events.send(EngineEvent::StateChanged { task });
+        }
+        Ok(())
     }
 
     /// Ask a running transfer to stop; it will settle into `Paused`.
@@ -467,6 +526,21 @@ impl DownloadManager {
             .is_none_or(|c| c.cancel.is_cancelled())
         {
             return;
+        }
+
+        // Probe here (not in `add`) so the UI is never blocked on the network.
+        let needs_probe = {
+            let tasks = self.tasks.read().await;
+            tasks.get(&id).map(|task| task.remote.is_none()).unwrap_or(false)
+        };
+        if needs_probe {
+            if let Err(err) = self.probe_and_plan(&id).await {
+                drop(permit);
+                drop(queue_permit);
+                self.finish(&id, DownloadStatus::Failed, Some(err.to_string()))
+                    .await;
+                return;
+            }
         }
 
         self.set_status(&id, DownloadStatus::Downloading).await;

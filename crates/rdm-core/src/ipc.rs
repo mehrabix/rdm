@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::engine::DownloadManager;
 use crate::error::{Error, Result};
-use crate::types::{Category, DownloadSpec};
+use crate::types::DownloadSpec;
 
 /// A request from a client to the running app.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -121,19 +121,8 @@ async fn add(
     spec.queue = queue
         .filter(|name| !name.trim().is_empty())
         .unwrap_or_else(|| opts.queue.clone());
-
-    // Mirror the UI: when organising by category, probe first and place the
-    // file in the matching subfolder (the name, and so the category, needs the
-    // probe).
-    if opts.organize_by_category {
-        if let Ok(info) = manager.probe(&spec).await {
-            let target = spec
-                .output_dir
-                .join(Category::from_filename(&info.file_name).folder());
-            let _ = tokio::fs::create_dir_all(&target).await;
-            spec.output_dir = target;
-        }
-    }
+    // The engine decides the per-category folder after it probes.
+    spec.organize = opts.organize_by_category;
 
     match manager.add(spec).await {
         Ok(id) => Response::ok(Some(id)),

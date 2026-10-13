@@ -20,11 +20,12 @@ pub fn Tray(state: Downloads) -> Element {
             let menu = Menu::new();
             let pause_all = MenuItem::with_id("pause_all", "Pause all", true, None);
             let resume_all = MenuItem::with_id("resume_all", "Resume all", true, None);
+            let exit = MenuItem::with_id("exit", "Exit", true, None);
             let _ = menu.append_items(&[
                 &pause_all,
                 &resume_all,
                 &PredefinedMenuItem::separator(),
-                &PredefinedMenuItem::quit(Some("Quit RDM")),
+                &exit,
             ]);
             let icon = icon_from_memory::<DioxusTrayIcon>(TRAY_ICON_PNG).ok();
             trayicon::init_tray_icon(menu, icon);
@@ -34,8 +35,15 @@ pub fn Tray(state: Downloads) -> Element {
     use_tray_menu_event_handler(move |event| match event.id().0.as_str() {
         "pause_all" => state.pause_all(),
         "resume_all" => state.resume_all(),
+        "exit" => exit_app(),
         _ => {}
     });
 
     rsx! {}
+}
+
+/// Exit the process. Wrapped in a `()`-returning fn because a closure whose body
+/// diverges infers a `!` return type, which the event handler rejects.
+fn exit_app() {
+    std::process::exit(0);
 }

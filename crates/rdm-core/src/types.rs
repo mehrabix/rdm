@@ -164,6 +164,9 @@ pub struct DownloadSpec {
     /// on top of the app-wide limit.
     #[serde(default)]
     pub speed_limit: u64,
+    /// Put the file in a per-category subfolder (decided after the probe).
+    #[serde(default)]
+    pub organize: bool,
 }
 
 impl DownloadSpec {
@@ -179,6 +182,7 @@ impl DownloadSpec {
             cookies: None,
             queue: DEFAULT_QUEUE.to_string(),
             speed_limit: 0,
+            organize: false,
         }
     }
 
