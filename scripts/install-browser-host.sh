@@ -11,9 +11,21 @@
 #
 set -euo pipefail
 
-HOST="${1:-$(command -v rdm-native-host || true)}"
+HOST="${1:-}"
+if [ -z "$HOST" ]; then
+  for candidate in \
+    /usr/lib/rdm/rdm-native-host \
+    "$(command -v rdm-native-host 2>/dev/null || true)" \
+    "$HOME/.cargo/bin/rdm-native-host"; do
+    if [ -n "$candidate" ] && [ -x "$candidate" ]; then
+      HOST="$candidate"
+      break
+    fi
+  done
+fi
 if [ -z "${HOST:-}" ] || [ ! -x "$HOST" ]; then
-  echo "usage: install-browser-host.sh /path/to/rdm-native-host" >&2
+  echo "usage: install-browser-host.sh [path-to-rdm-native-host]" >&2
+  echo "  install the 'rdm' package, or build it: cargo build --release -p rdm-native-host" >&2
   exit 1
 fi
 HOST="$(readlink -f "$HOST")"
