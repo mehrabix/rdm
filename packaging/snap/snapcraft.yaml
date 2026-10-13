@@ -1,11 +1,11 @@
 # Snap package. Build + publish:
 #
 #   snapcraft pack                     # local
-#   snapcraft upload --release=stable rdm_0.1.0_amd64.snap
+#   snapcraft upload --release=stable mehrabix-rdm_0.1.0_amd64.snap
 #
 # Publishing to the Snap Store needs a store account and
 # SNAPCRAFT_STORE_CREDENTIALS (from `snapcraft export-login`).
-name: rdm
+name: mehrabix-rdm
 base: core24
 version: "0.1.0"
 summary: Fast, resumable, multi-connection download manager
