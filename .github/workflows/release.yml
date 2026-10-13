@@ -29,13 +29,12 @@ jobs:
             bundle_args: "--package-types macos --package-types dmg"
     runs-on: ${{ matrix.os }}
 
-    # Optional signing credentials. They surface as the `env` context, which is
-    # what step-level `if:` conditions are allowed to read (the `secrets`
-    # context is not available there). When a secret is unset the value is empty
-    # and the corresponding signing step is skipped.
+    # Optional signing credentials. Secrets can't be read in step-level `if:`
+    # conditions, so presence is exposed as a boolean and the certs themselves
+    # are scoped to the steps that use them. That matters: `dx bundle` reads
+    # `APPLE_CERTIFICATE` directly and tries to import it, so an empty-but-set
+    # value would make the macOS bundle fail.
     env:
-      APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
       APPLE_SIGN_IDENTITY: ${{ secrets.APPLE_SIGN_IDENTITY }}
       APPLE_ID: ${{ secrets.APPLE_ID }}
       APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
@@ -44,6 +43,7 @@ jobs:
       WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
       GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
       GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+      APPLE_SIGNING: ${{ secrets.APPLE_CERTIFICATE != '' }}
 
     steps:
       - uses: actions/checkout@v4
@@ -104,7 +104,10 @@ jobs:
 
       # ---- macOS: sign + notarise -------------------------------------------
       - name: Import Apple signing certificate
-        if: runner.os == 'macOS' && env.APPLE_CERTIFICATE != ''
+        if: runner.os == 'macOS' && env.APPLE_SIGNING == 'true'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
         run: |
           echo "$APPLE_CERTIFICATE" | base64 --decode > certificate.p12
           security create-keychain -p actions build.keychain
@@ -116,7 +119,7 @@ jobs:
           rm certificate.p12
 
       - name: Sign + notarise (macOS)
-        if: runner.os == 'macOS' && env.APPLE_CERTIFICATE != ''
+        if: runner.os == 'macOS' && env.APPLE_SIGNING == 'true'
         run: |
           APP=$(find target/dx -name '*.app' -type d | head -1)
           if [ -n "$APP" ]; then
