@@ -12,6 +12,7 @@ pub mod error;
 pub mod format;
 pub mod http;
 pub mod ipc;
+pub mod media;
 pub mod rate;
 pub mod segment;
 pub mod speed;
@@ -25,6 +26,6 @@ pub use engine::{DownloadManager, EngineConfig, EngineEvent};
 pub use error::{Error, Result};
 pub use rate::RateLimiter;
 pub use types::{
-    Category, DownloadSpec, DownloadStatus, DownloadTask, ProgressUpdate, RemoteInfo, Segment,
-    SegmentStatus,
+    Category, DownloadKind, DownloadSpec, DownloadStatus, DownloadTask, ProgressUpdate, RemoteInfo,
+    Segment, SegmentStatus,
 };

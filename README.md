@@ -147,7 +147,7 @@ Most Linux download tools either do one stream well (`curl`, `wget`) or wrap
 | Distribution: apt, dnf/zypper, Homebrew, Scoop, Snap (edge), AppImage/`.dmg`/`.msi` installers | ✅ |
 | winget, AUR, Flathub, Chocolatey | ⬜ accounts/PRs pending |
 | Browser integration: "Download with RDM" link menu (Firefox + Chromium) | ✅ |
-| Media grabber, site grabber (video downloader like IDM) | ⬜ Phase 4 |
+| Media grabber: HLS stream assembly ✅ (DASH + yt-dlp bridge ⬜); site grabber ⬜ | 🟡 |
 
 The exhaustive IDM-parity matrix and roadmap: [masterplan §9–10](docs/MASTERPLAN.md#9-feature-parity-matrix-vs-idm).
 

@@ -1,43 +1,59 @@
 # RDM browser extension
 
-Adds **Download with RDM** to a link's right-click menu. It hands the URL to the
-native-messaging host (`rdm-native-host`), which forwards it to a running RDM.
+Sends links and page media to a running RDM (Rust Download Manager).
 
 ```
-right-click a link ──> this extension ──> rdm-native-host ──> running RDM
-                       (nativeMessaging)     (unix socket)
+right-click / badge / popup ──> this extension ──> rdm-native-host ──> running RDM
+                                (nativeMessaging)     (unix socket)
 ```
+
+What it does:
+
+- **Right-click** a link, image, video, audio or a selected URL → **Download with RDM**.
+- **Toolbar button** → a popup that reports whether RDM is reachable and lists the
+  media it found on the current page, each with a **Download** button.
+- **In-page badges** — a small “⬇ RDM” button is overlaid on every `<video>`/`<audio>`.
 
 ## 1. Install the native host
 
-The host binary and its registration manifests must be in place first:
+The `.deb` already installs it to `/usr/lib/rdm/rdm-native-host` with the browser
+manifests. For an unpackaged setup:
 
 ```bash
-scripts/install-browser-host.sh ~/.cargo/bin/rdm-native-host   # or /usr/lib/rdm/rdm-native-host
+scripts/install-browser-host.sh /usr/lib/rdm/rdm-native-host
 ```
 
 ## 2. Load the extension
 
-**Chromium / Chrome**
+**Chromium / Chrome** — `chrome://extensions` → enable **Developer mode** →
+**Load unpacked** → pick this directory. The `manifest.json` pins a stable id
+(`pamjnfmkehmmabkofbhpkkpbahikakfe`) via `key`, so the host manifest matches
+without editing.
 
-1. `chrome://extensions` → enable **Developer mode**.
-2. **Load unpacked** → pick this directory (the `manifest.json` here pins a
-   stable extension id, `pamjnfmkehmmabkofbhpkkpbahikakfe`, so the host manifest
-   matches without editing).
-
-**Firefox**
-
-1. Copy `manifest.firefox.json` over a scratch copy as `manifest.json`, or load
-   it as a temporary add-on via `about:debugging#/runtime/this-firefox` →
-   **Load Temporary Add-on** (the `gecko.id` is `rdm@mehrabix.github.io`).
+**Firefox** — load `manifest.firefox.json` as a temporary add-on via
+`about:debugging#/runtime/this-firefox` (its `gecko.id` is `rdm@mehrabix.github.io`).
 
 ## 3. Use it
 
-Right-click any link → **Download with RDM**. RDM (already running) adds the
-transfer to its list. If RDM isn't running the extension logs
-`RDM is not running`.
+Keep **RDM running** (the socket only exists while the app is up), then
+right-click a link or click a badge. The popup's status shows `connected` when
+RDM answers.
 
-## Scope
+## Troubleshooting
 
-v1 is the link context menu only. Auto-diverting browser downloads and
-"download all links" are later passes.
+- **Popup says “RDM not running”** → start RDM. The socket is
+  `$XDG_RUNTIME_DIR/rdm.sock` (else `~/.local/share/rdm/rdm.sock`) and is only
+  served while the app runs.
+- **Nothing happens on click** → reload the extension after changing files
+  (`chrome://extensions` → the reload icon) and check the page console / the
+  extension’s service-worker console for `RDM:` lines.
+- **Native host not found** → the host manifest must point at the real binary;
+  re-run `scripts/install-browser-host.sh`, or reinstall the `.deb`.
+
+## Scope / roadmap
+
+Direct media files (`.mp4`, `.webm`, …) download via RDM’s normal engine, and
+**HLS streams now assemble**: sending a `.m3u8` follows the master playlist to
+the best variant and concatenates the segments (RDM names the result `.ts`).
+Still to do: **DASH** (`.mpd`) assembly, a **quality picker** in the badge/popup,
+and a **`yt-dlp` bridge** for sites where the manifest alone isn’t enough.

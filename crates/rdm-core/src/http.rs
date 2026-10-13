@@ -159,6 +159,16 @@ pub async fn fetch_full(client: &Client, url: &str, opts: &RequestOptions) -> Re
     Ok(resp)
 }
 
+/// Fetch a whole resource as text (HLS/DASH playlists).
+pub async fn fetch_text(client: &Client, url: &str, opts: &RequestOptions) -> Result<String> {
+    Ok(fetch_full(client, url, opts).await?.text().await?)
+}
+
+/// Fetch a whole resource as bytes (HLS/DASH segments).
+pub async fn fetch_bytes(client: &Client, url: &str, opts: &RequestOptions) -> Result<Vec<u8>> {
+    Ok(fetch_full(client, url, opts).await?.bytes().await?.to_vec())
+}
+
 fn header_string(headers: &HeaderMap, name: header::HeaderName) -> Option<String> {
     headers
         .get(name)

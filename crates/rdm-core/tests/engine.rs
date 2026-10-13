@@ -93,6 +93,89 @@ fn payload(len: usize) -> Vec<u8> {
     (0..len).map(|i| (i % 251) as u8).collect()
 }
 
+/// A tiny router that serves an HLS master playlist, a variant, and two
+/// segments, so the assembler can be exercised end to end.
+async fn spawn_hls_server() -> std::net::SocketAddr {
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+
+    tokio::spawn(async move {
+        loop {
+            let Ok((mut socket, _)) = listener.accept().await else {
+                continue;
+            };
+            tokio::spawn(async move {
+                let mut buf = Vec::new();
+                let mut tmp = [0u8; 1024];
+                loop {
+                    match socket.read(&mut tmp).await {
+                        Ok(0) => break,
+                        Ok(n) => {
+                            buf.extend_from_slice(&tmp[..n]);
+                            if buf.windows(4).any(|w| w == b"\r\n\r\n") {
+                                break;
+                            }
+                        }
+                        Err(_) => return,
+                    }
+                }
+                let request = String::from_utf8_lossy(&buf).to_string();
+                let path = request
+                    .lines()
+                    .next()
+                    .and_then(|line| line.split_whitespace().nth(1))
+                    .unwrap_or("/")
+                    .to_string();
+
+                let (status, body): (&str, Vec<u8>) = match path.as_str() {
+                    "/master.m3u8" => (
+                        "200 OK",
+                        b"#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1000\nv/index.m3u8\n".to_vec(),
+                    ),
+                    "/v/index.m3u8" => (
+                        "200 OK",
+                        b"#EXTM3U\n#EXTINF:1,\nseg0.ts\n#EXTINF:1,\nseg1.ts\n#EXT-X-ENDLIST\n"
+                            .to_vec(),
+                    ),
+                    "/v/seg0.ts" => ("200 OK", b"AAAA".to_vec()),
+                    "/v/seg1.ts" => ("200 OK", b"BBBB".to_vec()),
+                    _ => ("404 Not Found", Vec::new()),
+                };
+
+                let head = format!(
+                    "HTTP/1.1 {status}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                    body.len()
+                );
+                let _ = socket.write_all(head.as_bytes()).await;
+                let _ = socket.write_all(&body).await;
+                let _ = socket.flush().await;
+                let _ = socket.shutdown().await;
+            });
+        }
+    });
+
+    addr
+}
+
+#[tokio::test]
+async fn assembles_an_hls_stream() {
+    let addr = spawn_hls_server().await;
+    let dir = tempfile::tempdir().unwrap();
+    let mgr = DownloadManager::new(EngineConfig::default()).unwrap();
+
+    // `add` auto-detects HLS from the `.m3u8` extension.
+    let spec = DownloadSpec::new(format!("http://{addr}/master.m3u8"), dir.path()).connections(4);
+    let id = mgr.add(spec).await.unwrap();
+    let task = wait_until_terminal(&mgr, &id, Duration::from_secs(10)).await;
+    assert_eq!(task.status, DownloadStatus::Completed, "{:?}", task.error);
+
+    // The master playlist is followed to the variant, and its segments are
+    // concatenated in order into a `.ts` file.
+    let written = std::fs::read(dir.path().join("master.ts")).unwrap();
+    assert_eq!(written, b"AAAABBBB");
+    assert_eq!(task.total, Some(8));
+}
+
 async fn wait_until_terminal(
     mgr: &Arc<DownloadManager>,
     id: &str,

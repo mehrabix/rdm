@@ -20,16 +20,18 @@ use tokio::sync::{broadcast, Semaphore};
 use tokio::sync::{Mutex, RwLock};
 use tokio_util::sync::CancellationToken;
 use tracing::debug;
+use url::Url;
 
 use crate::error::{Error, Result};
 use crate::http::{self, RequestOptions};
 use crate::rate::RateLimiter;
+use crate::media;
 use crate::segment;
 use crate::speed::{eta_secs, SpeedMeter};
 use crate::store;
 use crate::types::{
-    Category, DownloadSpec, DownloadStatus, DownloadTask, ProgressUpdate, RemoteInfo, Segment,
-    SegmentStatus,
+    Category, DownloadKind, DownloadSpec, DownloadStatus, DownloadTask, ProgressUpdate, RemoteInfo,
+    Segment, SegmentStatus,
 };
 use crate::util;
 
@@ -310,10 +312,22 @@ impl DownloadManager {
         let dir = spec.output_dir.clone();
         tokio::fs::create_dir_all(&dir).await?;
 
+        // Auto-detect HLS by extension so every entry point (UI, clipboard, IPC)
+        // benefits without the caller having to say so.
+        if spec.kind == DownloadKind::File && media::is_hls_url(&spec.url) {
+            spec.kind = DownloadKind::Hls;
+        }
+
         // A provisional name from the URL gives the row something to show until
-        // the probe refines it (unless the caller named the file).
+        // the probe refines it (unless the caller named the file). An HLS stream
+        // is written as an MPEG-TS file, not a playlist.
         if spec.file_name.is_none() {
-            spec.file_name = Some(util::filename_from_url(&spec.url));
+            let mut name = util::filename_from_url(&spec.url);
+            if spec.kind == DownloadKind::Hls && name.to_ascii_lowercase().ends_with(".m3u8") {
+                name.truncate(name.len() - 5);
+                name.push_str(".ts");
+            }
+            spec.file_name = Some(name);
         }
 
         let id = uuid::Uuid::new_v4().to_string();
@@ -528,23 +542,36 @@ impl DownloadManager {
             return;
         }
 
-        // Probe here (not in `add`) so the UI is never blocked on the network.
-        let needs_probe = {
+        // Probe/resolve here (not in `add`) so the UI is never blocked on the
+        // network.
+        let kind = {
             let tasks = self.tasks.read().await;
-            tasks.get(&id).map(|task| task.remote.is_none()).unwrap_or(false)
+            tasks
+                .get(&id)
+                .map(|task| task.spec.kind)
+                .unwrap_or(DownloadKind::File)
         };
-        if needs_probe {
-            if let Err(err) = self.probe_and_plan(&id).await {
-                drop(permit);
-                drop(queue_permit);
-                self.finish(&id, DownloadStatus::Failed, Some(err.to_string()))
-                    .await;
-                return;
-            }
-        }
 
-        self.set_status(&id, DownloadStatus::Downloading).await;
-        let outcome = self.transfer(&id).await;
+        let outcome = if kind == DownloadKind::Hls {
+            self.set_status(&id, DownloadStatus::Probing).await;
+            self.transfer_hls(&id).await
+        } else {
+            let needs_probe = {
+                let tasks = self.tasks.read().await;
+                tasks.get(&id).map(|task| task.remote.is_none()).unwrap_or(false)
+            };
+            if needs_probe {
+                if let Err(err) = self.probe_and_plan(&id).await {
+                    drop(permit);
+                    drop(queue_permit);
+                    self.finish(&id, DownloadStatus::Failed, Some(err.to_string()))
+                        .await;
+                    return;
+                }
+            }
+            self.set_status(&id, DownloadStatus::Downloading).await;
+            self.transfer(&id).await
+        };
         drop(permit);
         drop(queue_permit);
 
@@ -600,6 +627,83 @@ impl DownloadManager {
         ticker.abort();
         self.sync_progress(id, &lives, &single).await;
         result
+    }
+
+    /// Assemble an HLS stream: resolve the playlist, then fetch and concatenate
+    /// any init segment and the ordered segments into the output file.
+    async fn transfer_hls(self: &Arc<Self>, id: &str) -> Result<()> {
+        let (spec, out_path) = {
+            let tasks = self.tasks.read().await;
+            let task = tasks.get(id).ok_or_else(|| not_found(id))?;
+            (task.spec.clone(), task.output_path())
+        };
+        let control = self.control(id).await.ok_or_else(|| not_found(id))?;
+        let opts = RequestOptions::from_spec(&spec);
+
+        if let Some(parent) = out_path.parent() {
+            tokio::fs::create_dir_all(parent).await?;
+        }
+
+        let single = Arc::new(AtomicU64::new(0));
+        let lives = Arc::new(StdMutex::new(Vec::new()));
+        let ticker = self.spawn_ticker(id.to_string(), lives.clone(), single.clone(), None);
+
+        let result = async {
+            let playlist = self.resolve_hls(&spec.url, &opts).await?;
+            if playlist.segments.is_empty() {
+                return Err(Error::invalid("the HLS playlist has no segments"));
+            }
+            self.set_status(id, DownloadStatus::Downloading).await;
+
+            let mut file = tokio::fs::File::create(&out_path).await?;
+            let mut written = 0u64;
+
+            let mut sources: Vec<&Url> = Vec::new();
+            if let Some(init) = &playlist.init {
+                sources.push(init);
+            }
+            sources.extend(playlist.segments.iter());
+
+            for source in sources {
+                if control.cancel.is_cancelled() {
+                    return Err(Error::Cancelled);
+                }
+                if control.paused.load(Ordering::Relaxed) {
+                    return Err(Error::Paused);
+                }
+                let bytes = http::fetch_bytes(&self.client, source.as_str(), &opts).await?;
+                let len = bytes.len() as u64;
+                self.limiter.acquire(len).await;
+                control.limiter.acquire(len).await;
+                file.write_all(&bytes).await?;
+                written += len;
+                single.store(written, Ordering::Relaxed);
+            }
+            file.flush().await?;
+            Ok(())
+        }
+        .await;
+
+        ticker.abort();
+        self.sync_progress(id, &lives, &single).await;
+        result
+    }
+
+    /// Fetch a playlist and, if it is a master, follow the highest-bandwidth
+    /// variant.
+    async fn resolve_hls(&self, url: &str, opts: &RequestOptions) -> Result<media::MediaPlaylist> {
+        let text = http::fetch_text(&self.client, url, opts).await?;
+        let base = Url::parse(url)?;
+        if media::is_master_playlist(&text) {
+            let variant = media::parse_master(&text, &base)
+                .into_iter()
+                .max_by_key(|v| v.bandwidth)
+                .ok_or_else(|| Error::invalid("no variants in the HLS master playlist"))?;
+            let text = http::fetch_text(&self.client, variant.url.as_str(), opts).await?;
+            Ok(media::parse_media(&text, &variant.url))
+        } else {
+            Ok(media::parse_media(&text, &base))
+        }
     }
 
     /// Keep up to `connections` segment workers busy. When a worker frees up and
@@ -777,6 +881,9 @@ impl DownloadManager {
                     match status {
                         DownloadStatus::Completed => {
                             task.completed_at = Some(now());
+                            if task.total.is_none() {
+                                task.total = Some(task.downloaded);
+                            }
                             if let Some(total) = task.total {
                                 task.downloaded = total;
                             }

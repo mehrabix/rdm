@@ -143,6 +143,17 @@ impl Segment {
     }
 }
 
+/// How a URL should be fetched.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum DownloadKind {
+    /// A plain file, fetched with range requests and segmented.
+    #[default]
+    File,
+    /// An HLS (`.m3u8`) stream, assembled from its segment list.
+    Hls,
+}
+
 /// Everything needed to start a transfer.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DownloadSpec {
@@ -167,6 +178,9 @@ pub struct DownloadSpec {
     /// Put the file in a per-category subfolder (decided after the probe).
     #[serde(default)]
     pub organize: bool,
+    /// How to fetch the URL (plain file vs. an HLS stream).
+    #[serde(default)]
+    pub kind: DownloadKind,
 }
 
 impl DownloadSpec {
@@ -183,7 +197,14 @@ impl DownloadSpec {
             queue: DEFAULT_QUEUE.to_string(),
             speed_limit: 0,
             organize: false,
+            kind: DownloadKind::File,
         }
+    }
+
+    /// Fetch this URL as an HLS stream and assemble the segments.
+    pub fn hls(mut self) -> Self {
+        self.kind = DownloadKind::Hls;
+        self
     }
 
     /// The queue name, treating an empty value as the default queue.
