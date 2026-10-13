@@ -26,13 +26,35 @@ function sendNative(payload) {
   });
 }
 
+/// Read the browser's cookies for `url`, as a `Cookie:` header value. Sites like
+/// YouTube require the logged-in session, which yt-dlp then reuses.
+function cookiesFor(url) {
+  return new Promise((resolve) => {
+    if (!api.cookies || !api.cookies.getAll) return resolve("");
+    const join = (cookies) =>
+      (cookies || []).map((c) => `${c.name}=${c.value}`).join("; ");
+    try {
+      const maybe = api.cookies.getAll({ url }, (cookies) => {
+        if (api.runtime.lastError) return resolve("");
+        resolve(join(cookies));
+      });
+      if (maybe && typeof maybe.then === "function") {
+        maybe.then((cookies) => resolve(join(cookies)), () => resolve(""));
+      }
+    } catch (_) {
+      resolve("");
+    }
+  });
+}
+
 /// Forward an http(s) URL to RDM; resolves with `{ok, id|error}`.
 async function queue(url, referer) {
   if (!/^https?:/i.test(url || "")) {
     return { ok: false, error: "not an http(s) URL" };
   }
   try {
-    const response = await sendNative({ action: "add", url, referer });
+    const cookies = await cookiesFor(url);
+    const response = await sendNative({ action: "add", url, referer, cookies });
     if (!response) return { ok: false, error: "no response from RDM" };
     return response;
   } catch (err) {

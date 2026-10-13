@@ -65,7 +65,9 @@ fn build_menu(tasks: &[DownloadTask]) -> Menu {
 
     let pause_all = MenuItem::with_id("pause_all", "Pause all", true, None);
     let resume_all = MenuItem::with_id("resume_all", "Resume all", true, None);
-    let exit = MenuItem::with_id("exit", "Exit", true, None);
+    // The toolkit's own quit is delivered natively (our menu-event loop is not
+    // reliable under libayatana-appindicator), so it is what actually exits.
+    let exit = PredefinedMenuItem::quit(Some("Exit"));
     let header = MenuItem::with_id("active", "Active downloads", false, None);
     let none = MenuItem::with_id("none", "No active downloads", false, None);
     let sep_top = PredefinedMenuItem::separator();

@@ -9,7 +9,7 @@
     "default_title": "RDM",
     "default_icon": { "128": "icons/icon-128.png" }
   },
-  "permissions": ["nativeMessaging", "contextMenus", "storage", "notifications", "activeTab", "<all_urls>"],
+  "permissions": ["nativeMessaging", "contextMenus", "storage", "notifications", "activeTab", "cookies", "<all_urls>"],
   "content_scripts": [
     {
       "matches": ["<all_urls>"],

@@ -789,6 +789,9 @@ impl DownloadManager {
                 &spec.url,
                 &template,
                 spec.format.as_deref(),
+                spec.cookies.as_deref(),
+                spec.user_agent.as_deref(),
+                spec.referer.as_deref(),
             ))
             .stdin(std::process::Stdio::null())
             .stdout(std::process::Stdio::null())
@@ -824,6 +827,7 @@ impl DownloadManager {
                 .rev()
                 .find(|line| !line.trim().is_empty())
                 .unwrap_or("yt-dlp failed");
+            tracing::warn!(%id, "yt-dlp failed: {detail}");
             return Err(Error::internal(format!("yt-dlp failed: {detail}")));
         }
 

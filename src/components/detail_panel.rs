@@ -83,6 +83,10 @@ pub fn DetailPanel(state: Downloads) -> Element {
 
             Progress { value: progress, indeterminate: task.total.is_none() && status.is_active() }
 
+            if let Some(error) = &task.error {
+                p { class: "rounded-md bg-destructive/10 px-2 py-1.5 text-[11px] text-destructive", "{error}" }
+            }
+
             div { class: "grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs",
                 Field { label: "Size", value: size }
                 Field { label: "Downloaded", value: downloaded }
