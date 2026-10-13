@@ -138,7 +138,7 @@ Most Linux download tools either do one stream well (`curl`, `wget`) or wrap
 
 | Area | State |
 |---|---|
-| Engine: probe, segment, resume, cancel/pause, speed/ETA, speed limiter, named queues | ✅ |
+| Engine: probe, segment, live dynamic re-segmentation, resume, cancel/pause, speed/ETA, global + per-download speed limit, named queues | ✅ |
 | UI: menu bar, toolbar, category rail, transfer table, right-click menu, options dialog, status bar, detail panel | ✅ |
 | Settings persisted to `~/.config/rdm/config.toml`; Dark/Light/System theme | ✅ |
 | Queue persistence + restore on launch, throughput graph | ✅ |
@@ -146,9 +146,8 @@ Most Linux download tools either do one stream well (`curl`, `wget`) or wrap
 | Languages: en, es, fr, de, pt, ru, zh, fa — the picker lists exactly what translates | ✅ |
 | Distribution: apt, dnf/zypper, Homebrew, Scoop, Snap (edge), AppImage/`.dmg`/`.msi` installers | ✅ |
 | winget, AUR, Flathub, Chocolatey | ⬜ accounts/PRs pending |
-| Live dynamic segmentation, per-download speed limit | ⬜ |
 | Browser integration: "Download with RDM" link menu (Firefox + Chromium) | ✅ |
-| Media grabber, site grabber | ⬜ Phase 4 |
+| Media grabber, site grabber (video downloader like IDM) | ⬜ Phase 4 |
 
 The exhaustive IDM-parity matrix and roadmap: [masterplan §9–10](docs/MASTERPLAN.md#9-feature-parity-matrix-vs-idm).
 

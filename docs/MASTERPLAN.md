@@ -306,13 +306,13 @@ aim at real parity rather than a guess at what IDM does.
 | Pause all / resume all | ✅ |
 | Retry on failure with backoff | ✅ (per-segment) |
 | Reconnect / auto-recover stalled connections | 🟡 |
-| Dynamic segmentation (live re-split of the largest chunk) | 🟡 algorithm done, wiring Phase 1 |
+| Dynamic segmentation (live re-split of the largest chunk) | ✅ |
 | Download queue with bounded concurrency | ✅ |
 | Named queues + per-queue concurrency | ✅ |
 | Built-in scheduler (daily window ✅; per-queue windows ⬜) | 🟡 |
 | Disconnect / shut down when finished | ⬜ Phase 5 |
 | Periodic synchronisation of files | ⬜ Phase 4 |
-| Speed limiter (global ✅; per-download ⬜ Phase 6) | 🟡 |
+| Speed limiter (global + per-download) | ✅ |
 | Progressive download quotas (MB per hour) | ⬜ Phase 6 |
 | Mirrors / failover across alternate hosts | ⬜ Phase 6 |
 | Metalink support | ⬜ Phase 6 |
