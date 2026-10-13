@@ -6,6 +6,9 @@
 # The master artwork lives at `assets/icon-source.png`. Replace that file with
 # new artwork (square, ideally 1024x1024) and re-run this script.
 #
+# Requires ImageMagick — either the v7 `magick` command or the v6
+# `convert`/`identify` pair.
+#
 # Usage:  bash scripts/make-icon.sh
 #
 set -euo pipefail
@@ -20,11 +23,23 @@ if [ ! -s "$MASTER" ]; then
   exit 1
 fi
 
+# ImageMagick v7 ships a single `magick` binary; v6 splits the tools.
+if command -v magick >/dev/null 2>&1; then
+  im() { magick "$@"; }
+  im_identify() { magick identify "$@"; }
+elif command -v convert >/dev/null 2>&1; then
+  im() { convert "$@"; }
+  im_identify() { identify "$@"; }
+else
+  echo "ImageMagick not found — install it (provides 'magick' or 'convert')." >&2
+  exit 1
+fi
+
 # 1. knock out the black backing that sits *behind* the rounded (white) plate —
 #    otherwise the corners render as black instead of transparent — then
 #    normalise to a square 1024x1024.
-read -r W H <<<"$(magick identify -format '%w %h' "$MASTER")"
-magick "$MASTER" -alpha set -fuzz 25% -fill none \
+read -r W H <<<"$(im_identify -format '%w %h' "$MASTER")"
+im "$MASTER" -alpha set -fuzz 25% -fill none \
   -draw "alpha 1,1 floodfill" \
   -draw "alpha $((W - 2)),1 floodfill" \
   -draw "alpha 1,$((H - 2)) floodfill" \
@@ -34,16 +49,16 @@ magick "$MASTER" -alpha set -fuzz 25% -fill none \
 
 # 2. derived sizes used by the app itself (icon-256 in the window, icon-32 tray)
 for s in 32 64 128 256 512; do
-  magick "$ASSETS/icon.png" -resize "${s}x${s}" "$ASSETS/icon-${s}.png"
+  im "$ASSETS/icon.png" -resize "${s}x${s}" "$ASSETS/icon-${s}.png"
 done
-magick "$ASSETS/icon.png" -define icon:auto-resize=256,128,64,48,32,16 "$ASSETS/icon.ico"
+im "$ASSETS/icon.png" -define icon:auto-resize=256,128,64,48,32,16 "$ASSETS/icon.ico"
 
 # 3. install into the user's icon theme so the shell picks it up
 ICON_ROOT="$HOME/.local/share/icons/hicolor"
 for s in 16 24 32 48 64 128 256 512; do
   dir="$ICON_ROOT/${s}x${s}/apps"
   mkdir -p "$dir"
-  magick "$ASSETS/icon.png" -resize "${s}x${s}" "$dir/rdm.png"
+  im "$ASSETS/icon.png" -resize "${s}x${s}" "$dir/rdm.png"
 done
 
 # 4. desktop entry (GNOME/Wayland matches the icon through this, not the toolkit)

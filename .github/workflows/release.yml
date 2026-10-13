@@ -71,11 +71,10 @@ jobs:
           node-version: 22
       - run: pnpm install --no-frozen-lockfile
 
-      # Regenerate the icon set so bundles pick up the current artwork.
-      # ImageMagick is preinstalled on the hosted runners.
-      - name: Build icon set
-        if: runner.os == 'Linux'
-        run: bash scripts/make-icon.sh
+      # NOTE: the icon assets (`assets/icon-*.png`) are committed and embedded
+      # into the app with `include_bytes!`, so bundling does not need to
+      # regenerate them. `scripts/make-icon.sh` is a local/dev tool (it needs
+      # ImageMagick, which is not installed on the runners).
 
       # `dx bundle` strips the built binary with `rust-objcopy`, which on the
       # macOS arm64 runners fails with "Library not loaded: libLLVM.dylib"
