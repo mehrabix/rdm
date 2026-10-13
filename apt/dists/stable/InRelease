@@ -1,0 +1,33 @@
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA512
+
+Architectures: amd64
+Codename: stable
+Components: main
+Date: Tue, 13 Oct 2026 11:20:09 +0000
+Label: RDM
+Origin: RDM
+Suite: stable
+MD5Sum:
+ aba70ce89037ab096e27b63e8d869d49              130 Release
+ d41d8cd98f00b204e9800998ecf8427e                0 main/binary-amd64/Packages
+ 779a951d11fd8ffa27d7c455e3716e2b               29 main/binary-amd64/Packages.gz
+SHA1:
+ 18d17258158a9eee23f3c91c284eff1f927327be              130 Release
+ da39a3ee5e6b4b0d3255bfef95601890afd80709                0 main/binary-amd64/Packages
+ d1561e9f23c1e457b274ef11df1fc4147a85baf5               29 main/binary-amd64/Packages.gz
+SHA256:
+ eeb228aa4b1e22ca16ce5d7174a393c32050b78e1b058d153e8ef022cf8857b8              130 Release
+ e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855                0 main/binary-amd64/Packages
+ eaa9ffd6f2cca1a8ae9753e7d6818b2779640f5543ee51c5a5112f9be68ba3cc               29 main/binary-amd64/Packages.gz
+SHA512:
+ a3e078f22879eaf884f0f6c80ad39d27fac06d62301f97a5b443855ff8b691c01d4aab2e2438d52c746e612fa2a755e597e7a9c47d24438efd9abe877478e4c1              130 Release
+ cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e                0 main/binary-amd64/Packages
+ 4271bae9080fa71f627cdfef87f736c111af8574aeccf0b5628184f64923b31f4d50651f6c1280c7b8293ddef1d1a0d5df6a9bbca543b30e148b6fb157e34682               29 main/binary-amd64/Packages.gz
+-----BEGIN PGP SIGNATURE-----
+
+iHUEARYKAB0WIQSHvu4TM7B+eYHP6B7VBFUvSGWqugUCas4T6QAKCRDVBFUvSGWq
+ukLJAP9RJu8/Vhyk7Hst5OIrO+uIJwXOGh4YxuH04W4g6c3RDQD+OzOxYgatpYh3
+J3ktLn+IL4hCF7DZ5h7b+jr9siUaxwc=
+=9XAv
+-----END PGP SIGNATURE-----
