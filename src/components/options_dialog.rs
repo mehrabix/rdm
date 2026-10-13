@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use dioxus::prelude::*;
 
-use crate::i18n::{use_t, LANGUAGES};
+use crate::i18n::{available_languages, use_t};
 use crate::settings::{use_settings, Theme};
 use crate::state::Downloads;
 use crate::ui::button::{Button, ButtonVariant};
@@ -151,8 +151,8 @@ fn GeneralTab() -> Element {
                 crate::ui::select::Select {
                     class: "w-72",
                     value: current.language.clone(),
-                    options: LANGUAGES
-                        .iter()
+                    options: available_languages()
+                        .into_iter()
                         .map(|(code, name)| (code.to_string(), name.to_string()))
                         .collect(),
                     onchange: move |code: String| settings.update(|s| s.language = code),
@@ -251,11 +251,13 @@ fn ConnectionTab() -> Element {
 
 #[component]
 fn AboutTab() -> Element {
+    let t = use_t();
+    let description = t("about.description");
     rsx! {
         div { class: "flex flex-col gap-2 text-sm",
             p { class: "text-base font-semibold", "RDM — Rust Download Manager" }
             p { class: "text-muted-foreground", "Version 0.1.0" }
-            p { class: "text-muted-foreground", "A fast, resumable, multi-connection download manager for Linux." }
+            p { class: "text-muted-foreground", "{description}" }
         }
     }
 }

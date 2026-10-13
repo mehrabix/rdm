@@ -77,6 +77,7 @@ dl.cancelled	Cancelada	Annulé	Abgebrochen	Cancelado	Отменено	已取消
 add.title	Nueva descarga	Nouveau téléchargement	Neuer Download	Novo download	Новая загрузка	新建下载
 add.subtitle	RDM analizará la URL y la dividirá en conexiones paralelas.	RDM analysera l'URL et la divisera en connexions parallèles.	RDM prüft die URL und teilt sie in parallele Verbindungen auf.	O RDM analisará a URL e a dividirá em conexões paralelas.	RDM проверит URL и разделит его на параллельные соединения.	RDM 将探测该链接并拆分为并行连接。
 add.url	URL	URL	URL	URL	URL	链接
+add.url_placeholder	https://example.com/big-file.zip	https://example.com/big-file.zip	https://example.com/big-file.zip	https://example.com/big-file.zip	https://example.com/big-file.zip	https://example.com/big-file.zip
 add.folder	Guardar en carpeta	Enregistrer dans	Dossier speichern	Salvar em pasta	Папка сохранения	保存到文件夹
 add.connections	Conexiones	Connexions	Verbindungen	Conexões	Соединения	连接数
 add.connections_hint	1–32. Más conexiones aceleran las descargas.	1–32. Plus de connexions accélèrent le téléchargement.	1–32. Mehr Verbindungen beschleunigen.	1–32. Mais conexões aceleram.	1–32. Больше соединений — быстрее.	1–32，连接越多下载越快。
@@ -115,3 +116,4 @@ options.scheduler.stop	Terminar a las	Arrêter à	Ende um	Parar às	Конец �
 options.scheduler.hint	Fuera de la franja, las descargas se pausan y se reanudan solas.	Hors plage, les téléchargements sont mis en pause puis repris.	Außerhalb wird pausiert und automatisch fortgesetzt.	Fora do intervalo, pausa e retoma sozinho.	Вне окна загрузки приостанавливаются и возобновляются.	时间段外自动暂停，开启后自动继续。
 options.coming_soon	Disponible en una fase posterior.	Disponible dans une phase ultérieure.	Kommt in einer späteren Phase.	Disponível em uma fase posterior.	Появится на следующем этапе.	将在后续阶段推出。
 about.title	Acerca de RDM	À propos de RDM	Über RDM	Sobre o RDM	О программе RDM	关于 RDM
+about.description	Un gestor de descargas rápido, reanudable y multiconexión para Linux.	Un gestionnaire de téléchargements rapide, reprenable et multi-connexions pour Linux.	Ein schneller, fortsetzbarer Multi-Verbindungs-Download-Manager für Linux.	Um gerenciador de downloads rápido, retomável e multiconexão para Linux.	Быстрый менеджер загрузок с докачкой и несколькими соединениями для Linux.	快速、可续传、多连接的 Linux 下载管理器。

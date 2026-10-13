@@ -115,5 +115,6 @@
   "options.scheduler.stop": "Parar às",
   "options.scheduler.hint": "Fora do intervalo, pausa e retoma sozinho.",
   "options.coming_soon": "Disponível em uma fase posterior.",
-  "about.title": "Sobre o RDM"
+  "about.title": "Sobre o RDM",
+  "about.description": "Um gerenciador de downloads rápido, retomável e multiconexão para Linux."
 }

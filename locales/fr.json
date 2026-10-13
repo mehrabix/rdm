@@ -115,5 +115,6 @@
   "options.scheduler.stop": "Arrêter à",
   "options.scheduler.hint": "Hors plage, les téléchargements sont mis en pause puis repris.",
   "options.coming_soon": "Disponible dans une phase ultérieure.",
-  "about.title": "À propos de RDM"
+  "about.title": "À propos de RDM",
+  "about.description": "Un gestionnaire de téléchargements rapide, reprenable et multi-connexions pour Linux."
 }

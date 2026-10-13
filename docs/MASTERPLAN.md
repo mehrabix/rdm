@@ -247,10 +247,14 @@ toggling `dark` on `<html>` via `document::eval`; **System** installs a
 
 `src/i18n.rs` + `locales/<code>.json`. The catalog is embedded (`include_str!`)
 and looked up by key; components use the `Tr { k: "…" }` node or `use_t()` (a
-`t(..)` call inside an rsx string does not parse). `LANGUAGES` lists ~34 locales
-(IDM's set); only English is translated today and anything else falls back to
+`t(..)` call inside an rsx string does not parse). `LOCALES` ships **en, es, fr,
+de, pt, ru, zh**; `LANGUAGES` keeps IDM's wider list, but the picker offers only
+codes that have a catalog (`available_languages()`), so every selectable
+language changes the text — an unlisted/untranslated code still falls back to
 English without panicking. `is_rtl()` sets `dir="rtl"` on the root for
-Arabic/Farsi/Hebrew. Switching language re-renders live.
+Arabic/Farsi/Hebrew. Switching language re-renders live. Adding a language = one
+column in `locales/translations.tsv` plus one `LOCALES` entry; the catalog logic
+is covered by unit tests (`cargo test -p rdm`).
 
 ### 8.5 Components & state
 
@@ -367,7 +371,7 @@ aim at real parity rather than a guess at what IDM does.
 | Minimise-to-tray | ⬜ Phase 5 |
 | Desktop notifications + completion sound | ⬜ Phase 5 |
 | Autostart on login | ⬜ Phase 5 |
-| Additional translations beyond English | ⬜ Phase 5 |
+| Additional translations beyond the shipped 7 | 🟡 |
 | Self-update ("quick update") | ⬜ Phase 6 |
 | Guided first-run setup ("install wizard") | ⬜ Phase 5 |
 | Packaging: `.deb` / `.rpm` / AppImage / `.dmg` / `.msi` (Flatpak ⬜) | 🟡 |

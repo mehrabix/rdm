@@ -68,5 +68,11 @@ jobs:
           node-version: 22
       - run: pnpm install --no-frozen-lockfile
 
+      # App-crate unit tests (i18n catalog parity/fallbacks). WebKitGTK is
+      # already installed above for the Linux runner.
+      - name: App unit tests (Linux)
+        if: runner.os == 'Linux'
+        run: cargo test -p rdm
+
       - name: Bundle (debug)
         run: dx bundle --desktop ${{ matrix.bundle_args }}

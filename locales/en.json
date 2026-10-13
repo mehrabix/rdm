@@ -125,5 +125,6 @@
   "options.scheduler.hint": "Outside the window, running transfers are paused and automatically resume when it opens again.",
   "options.coming_soon": "Coming in a later phase.",
 
-  "about.title": "About RDM"
+  "about.title": "About RDM",
+  "about.description": "A fast, resumable, multi-connection download manager for Linux."
 }

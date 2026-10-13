@@ -115,5 +115,6 @@
   "options.scheduler.stop": "Ende um",
   "options.scheduler.hint": "Außerhalb wird pausiert und automatisch fortgesetzt.",
   "options.coming_soon": "Kommt in einer späteren Phase.",
-  "about.title": "Über RDM"
+  "about.title": "Über RDM",
+  "about.description": "Ein schneller, fortsetzbarer Multi-Verbindungs-Download-Manager für Linux."
 }

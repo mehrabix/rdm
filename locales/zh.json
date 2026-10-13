@@ -115,5 +115,6 @@
   "options.scheduler.stop": "结束时间",
   "options.scheduler.hint": "时间段外自动暂停，开启后自动继续。",
   "options.coming_soon": "将在后续阶段推出。",
-  "about.title": "关于 RDM"
+  "about.title": "关于 RDM",
+  "about.description": "快速、可续传、多连接的 Linux 下载管理器。"
 }

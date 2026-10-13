@@ -115,5 +115,6 @@
   "options.scheduler.stop": "Terminar a las",
   "options.scheduler.hint": "Fuera de la franja, las descargas se pausan y se reanudan solas.",
   "options.coming_soon": "Disponible en una fase posterior.",
-  "about.title": "Acerca de RDM"
+  "about.title": "Acerca de RDM",
+  "about.description": "Un gestor de descargas rápido, reanudable y multiconexión para Linux."
 }

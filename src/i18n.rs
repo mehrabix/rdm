@@ -15,9 +15,9 @@ use dioxus::prelude::*;
 
 use crate::settings::{Settings, SettingsCtx};
 
-/// `(code, endonym)` — mirrors the languages IDM offers. A language appears here
-/// (so it can be picked) even before its translations land; it then falls back
-/// to English.
+/// `(code, endonym)` — mirrors the languages IDM offers. This is the full list
+/// we may translate; only the codes that have a catalog (see [`LOCALES`]) are
+/// actually offered in the picker, so a choice always changes the UI.
 pub const LANGUAGES: &[(&str, &str)] = &[
     ("en", "English"),
     ("ar", "العربية"),
@@ -85,6 +85,30 @@ fn load(json: &str) -> HashMap<String, String> {
     serde_json::from_str(json).unwrap_or_default()
 }
 
+/// The `(code, endonym)` pairs worth offering: those with a catalog, so every
+/// selectable language actually translates the UI. `LANGUAGES` keeps the full
+/// IDM list for when more translations land.
+pub fn available_languages() -> Vec<(&'static str, &'static str)> {
+    LANGUAGES
+        .iter()
+        .copied()
+        .filter(|(code, _)| LOCALES.iter().any(|(locale, _)| locale == code))
+        .collect()
+}
+
+/// Pure catalog lookup: `code`'s text for `key`, falling back to English and
+/// finally to the key itself, so a missing translation is never a crash or an
+/// empty label.
+fn translate(code: &str, key: &str) -> String {
+    let catalogs = catalogs();
+    catalogs
+        .get(code)
+        .and_then(|catalog| catalog.get(key))
+        .or_else(|| catalogs.get(FALLBACK).and_then(|catalog| catalog.get(key)))
+        .cloned()
+        .unwrap_or_else(|| key.to_string())
+}
+
 /// The translator, shared through context. `t()` reads the language from
 /// settings, so a component that calls it re-renders when the language changes.
 #[derive(Clone, Copy, PartialEq)]
@@ -101,17 +125,9 @@ impl I18n {
         RTL.contains(&self.code().as_str())
     }
 
-    /// Translate `key`, falling back to English and finally to the key itself,
-    /// so a missing translation is never a crash or an empty label.
+    /// Translate `key` for the currently selected language.
     pub fn t(&self, key: &str) -> String {
-        let catalogs = catalogs();
-        let code = self.code();
-        catalogs
-            .get(code.as_str())
-            .and_then(|catalog| catalog.get(key))
-            .or_else(|| catalogs.get(FALLBACK).and_then(|catalog| catalog.get(key)))
-            .cloned()
-            .unwrap_or_else(|| key.to_string())
+        translate(&self.code(), key)
     }
 }
 
@@ -142,4 +158,66 @@ pub fn Tr(#[props(into)] k: String) -> Element {
 pub fn provide_settings(settings: Signal<Settings>) {
     use_context_provider(|| SettingsCtx { settings });
     use_context_provider(|| I18n { settings });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn every_locale_parses_and_has_english_keys() {
+        let catalogs = catalogs();
+        let english = catalogs.get("en").expect("en catalog");
+        assert!(!english.is_empty(), "en catalog is empty");
+        for (code, _) in LOCALES.iter().copied() {
+            let catalog = catalogs
+                .get(code)
+                .unwrap_or_else(|| panic!("{code} catalog missing"));
+            let mut have: Vec<&String> = catalog.keys().collect();
+            let mut want: Vec<&String> = english.keys().collect();
+            have.sort();
+            want.sort();
+            assert_eq!(have, want, "key set mismatch for locale `{code}`");
+        }
+    }
+
+    #[test]
+    fn translated_locales_override_english() {
+        assert_ne!(translate("de", "menu.file"), translate("en", "menu.file"));
+        assert_ne!(translate("zh", "toolbar.pause"), translate("en", "toolbar.pause"));
+        assert_ne!(translate("ru", "table.speed"), translate("en", "table.speed"));
+    }
+
+    #[test]
+    fn unknown_language_falls_back_to_english() {
+        assert_eq!(translate("zz", "menu.file"), translate("en", "menu.file"));
+    }
+
+    #[test]
+    fn missing_key_falls_back_to_the_key() {
+        assert_eq!(translate("en", "no.such.key"), "no.such.key");
+        assert_eq!(translate("de", "no.such.key"), "no.such.key");
+    }
+
+    #[test]
+    fn every_pickable_language_has_a_catalog() {
+        let languages = available_languages();
+        // English plus the shipped translations.
+        assert_eq!(languages.len(), LOCALES.len());
+        for (code, _) in languages {
+            assert!(
+                catalogs().contains_key(code),
+                "`{code}` is offered but has no catalog"
+            );
+        }
+    }
+
+    #[test]
+    fn rtl_membership() {
+        for code in ["ar", "fa", "he"] {
+            assert!(RTL.contains(&code), "{code} should be right-to-left");
+        }
+        assert!(!RTL.contains(&"en"));
+        assert!(!RTL.contains(&"de"));
+    }
 }

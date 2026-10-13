@@ -115,5 +115,6 @@
   "options.scheduler.stop": "Конец в",
   "options.scheduler.hint": "Вне окна загрузки приостанавливаются и возобновляются.",
   "options.coming_soon": "Появится на следующем этапе.",
-  "about.title": "О программе RDM"
+  "about.title": "О программе RDM",
+  "about.description": "Быстрый менеджер загрузок с докачкой и несколькими соединениями для Linux."
 }
