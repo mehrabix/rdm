@@ -21,13 +21,21 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo test -p rdm-core
 
-  # The desktop app must build on every platform we ship.
+  # The desktop app must build — and bundle into an installer — on every
+  # platform we ship. Bundling runs in debug mode here (cheap, no `rustc-objcopy`
+  # strip) purely as a smoke test; `release.yml` does the signed release bundles.
   app:
-    name: Build app (${{ matrix.os }})
+    name: Build + bundle app (${{ matrix.os }})
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            bundle_args: "--package-types appimage"
+          - os: windows-latest
+            bundle_args: "--package-types msi"
+          - os: macos-latest
+            bundle_args: "--package-types macos --package-types dmg"
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -60,5 +68,5 @@ jobs:
           node-version: 22
       - run: pnpm install --no-frozen-lockfile
 
-      - name: Build (debug)
-        run: dx build --desktop
+      - name: Bundle (debug)
+        run: dx bundle --desktop ${{ matrix.bundle_args }}

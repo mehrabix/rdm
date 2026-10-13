@@ -370,7 +370,7 @@ aim at real parity rather than a guess at what IDM does.
 | Additional translations beyond English | ⬜ Phase 5 |
 | Self-update ("quick update") | ⬜ Phase 6 |
 | Guided first-run setup ("install wizard") | ⬜ Phase 5 |
-| Packaging: `.deb` / AppImage / Flatpak | ⬜ Phase 5 |
+| Packaging: `.deb` / `.rpm` / AppImage / `.dmg` / `.msi` (Flatpak ⬜) | 🟡 |
 | Windows / macOS builds | ⬜ Phase 6 |
 | Headless `rdm-cli` (same engine) | ⬜ Phase 6 |
 
@@ -414,8 +414,10 @@ it; scoped site grabber with depth/domain filters and asset-type selection;
 post-processing (ffmpeg remux hooks).
 
 **Phase 5 — Product polish**
-Packaging: `.deb`, AppImage, Flatpak. Minimise-to-tray, desktop notifications,
-completion sound, autostart, additional translations, toolbar skins.
+Packaging: `.deb`, `.rpm`, AppImage, `.dmg` and `.msi` are built by CI (see
+§10.5); Flatpak/Flathub is the remaining channel. Minimise-to-tray, desktop
+notifications, completion sound, autostart, additional translations, toolbar
+skins.
 
 **Phase 6 — Power features & hardening**
 Mirrors/Metalink failover, proxy + auth, bandwidth scheduling, fuzzing of the
@@ -434,8 +436,9 @@ signing: [RELEASING.md](./RELEASING.md).
 |---|---|---|
 | **apt** (Debian/Ubuntu) | `apt install rdm` | signed repo on GitHub Pages (`/apt`, Ed25519-signed `InRelease`) |
 | **dnf / yum / zypper** | `dnf install rdm` | signed `repodata` on GitHub Pages (`/rpm`) |
-| **Homebrew** (macOS) | `brew install --cask mehrabix/rdm/rdm` | tap `mehrabix/homebrew-rdm` (ships `Rdm.app`) |
+| **Homebrew** (macOS) | `brew install --cask mehrabix/rdm/rdm` | tap `mehrabix/homebrew-rdm` (ships `RDM.app`) |
 | **Scoop** (Windows) | `scoop install rdm` | bucket `mehrabix/scoop-bucket` |
+| **Direct download** | release assets | `.AppImage` / `.dmg` / `.app.zip` / `.msi` / `.deb` / `.rpm` / tarballs on the GitHub Release |
 
 `repo.yml` rebuilds the apt+rpm repos from the latest release; `release.yml`
 builds and attaches the artifacts. The archive signing key is CI-managed
@@ -450,7 +453,7 @@ regenerate, `gh secret set GPG_PRIVATE_KEY`, bump the public key, re-run.
 | **winget** | `packaging/winget/*.yaml` | PR to `microsoft/winget-pkgs` (or `wingetcreate --submit`) |
 | **AUR** (Arch) | `packaging/arch/PKGBUILD` | SSH public key registered at aur.archlinux.org |
 | **pacman repo** | same recipe | needs an `archlinux` container job to build `.pkg.tar.zst` |
-| **Snap** | `packaging/snap/snapcraft.yaml` | Snap Store account + `SNAPCRAFT_STORE_CREDENTIALS` |
+| **Snap** | `packaging/snap/snapcraft.yaml`, built by `.github/workflows/snap.yml` (`snapcore/action-build`) | Snap Store account + `SNAPCRAFT_STORE_CREDENTIALS` |
 | **Chocolatey** | `packaging/chocolatey/*` | chocolatey.org account + API key |
 | **Flathub** | `packaging/flatpak/*` (needs rework, below) | a submission PR from `new-pr` |
 | **Fedora COPR / openSUSE OBS** | spec exists | an account on either |
@@ -478,12 +481,22 @@ Known sandbox issues to solve before submitting: the **tray icon** will not work
 under the default Flatpak sandbox (needs the StatusNotifier portal / extra
 permissions), and `xdg-open` + clipboard access need the right `finish-args`.
 
-### Still missing at the artifact level
+### Installers — now shipped by CI
 
-`dx bundle` fails on the runners (its `rust-objcopy` strip step), so we ship
-release directories plus real `.deb`/`.rpm` — but **no `.AppImage`, `.dmg`,
-`.msi`**. Those are prerequisites for Flathub's `extra-data` path, homebrew-cask
-proper and the Snap store. Fixing that one step unblocks four channels.
+`release.yml` runs `dx bundle` on all three runners, so every `v*` tag attaches
+real installers alongside the archives and `.deb`/`.rpm`:
+
+| Artifact | Platform | Produced by |
+|---|---|---|
+| `rdm-linux-x86_64.AppImage` | Linux | `dx bundle --package-types appimage` (linuxdeploy) |
+| `rdm-macos-arm64.app.zip` | macOS | `dx bundle --package-types macos` — signed + notarised when the Apple secrets are set |
+| `rdm-macos-arm64.dmg` | macOS | `dx bundle --package-types dmg` (hdiutil) |
+| `rdm-windows-x86_64.msi` | Windows | `dx bundle --package-types msi` (WiX) |
+
+This is the piece that unblocks homebrew-cask proper and Flathub's `extra-data`
+path, and gives the Snap store a non-snap fallback. The bundler **requires** the
+`[bundle]` section in `Dioxus.toml` (identifier + publisher are mandatory);
+without it `dx bundle` bails before packaging anything.
 
 ## 11. Browser integration (design sketch)
 
@@ -531,7 +544,9 @@ cargo test -p rdm-core
 - **Property/fuzz** (Phase 6): `plan()` must always tile `[0, total)` exactly;
   feed random sizes/connection counts.
 - **Benchmarks** (Phase 6): segmentation throughput and planning cost.
-- **UI**: manual + `dx check` in CI once packaging lands.
+- **UI / packaging**: `ci.yml` runs `dx bundle` on Linux, macOS and Windows on
+  every push, so a broken bundler or a missing `[bundle]` config fails CI
+  instead of silently degrading a release.
 
 Run everything with `cargo test --workspace`.
 

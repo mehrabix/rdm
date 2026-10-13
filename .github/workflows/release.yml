@@ -20,10 +20,13 @@ jobs:
         include:
           - os: ubuntu-latest
             target: linux-x86_64
+            bundle_args: "--package-types appimage"
           - os: windows-latest
             target: windows-x86_64
+            bundle_args: "--package-types msi"
           - os: macos-latest
             target: macos-arm64
+            bundle_args: "--package-types macos --package-types dmg"
     runs-on: ${{ matrix.os }}
 
     # Optional signing credentials. They surface as the `env` context, which is
@@ -53,7 +56,13 @@ jobs:
             libwebkit2gtk-4.1-dev libxdo-dev libssl-dev \
             libayatana-appindicator3-dev librsvg2-dev build-essential
 
+      # `dx` post-processes the release binary with `rustc-objcopy` (from the
+      # `llvm-tools` component) to apply the profile's `strip` setting. Without
+      # the component the strip step fails — and on macOS arm64 `rust-objcopy`
+      # cannot load `libLLVM.dylib` — so install it on every runner.
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools-preview
       - uses: Swatinem/rust-cache@v2
 
       - name: Install the Dioxus CLI
@@ -76,25 +85,14 @@ jobs:
       # regenerate them. `scripts/make-icon.sh` is a local/dev tool (it needs
       # ImageMagick, which is not installed on the runners).
 
-      # `dx bundle` strips the built binary with `rust-objcopy`, which on the
-      # macOS arm64 runners fails with "Library not loaded: libLLVM.dylib"
-      # unless the llvm-tools component is present.
-      - name: LLVM tools (macOS)
-        if: runner.os == 'macOS'
-        run: rustup component add llvm-tools-preview
-
-      # Bundling is best-effort: if it fails we still ship a working release
-      # build rather than failing the whole release. `dx build --release` writes
-      # the same target/dx/rdm/release directory the packaging steps read.
+      # `dx bundle` compiles the release build *and* packages it. The `[bundle]`
+      # section of `Dioxus.toml` supplies the identifier/publisher the desktop
+      # bundler requires; `bundle_args` selects the installer format per
+      # platform (AppImage / `.app` + `.dmg` / `.msi`). The release directory the
+      # `.deb`, `.rpm` and tarball steps read is produced by the same build.
       - name: Bundle (release)
         shell: bash
-        run: |
-          if dx bundle --desktop --release; then
-            echo "bundled"
-          else
-            echo "::warning title=Bundling failed::dx bundle failed; falling back to dx build --release"
-            dx build --desktop --release
-          fi
+        run: dx bundle --desktop --release ${{ matrix.bundle_args }}
 
       # ---- macOS: sign + notarise -------------------------------------------
       - name: Import Apple signing certificate
@@ -112,12 +110,15 @@ jobs:
       - name: Sign + notarise (macOS)
         if: runner.os == 'macOS' && env.APPLE_CERTIFICATE != ''
         run: |
-          APP=$(find target/dx -maxdepth 6 -name '*.app' -type d | head -1)
+          APP=$(find target/dx -name '*.app' -type d | head -1)
           if [ -n "$APP" ]; then
             codesign --deep --force --options runtime --timestamp \
               --sign "$APPLE_SIGN_IDENTITY" "$APP"
-            ditto -c -k --keepParent "$APP" rdm-macos.zip
-            xcrun notarytool submit rdm-macos.zip \
+            # Notarisation needs a zip; the staples ticket is applied to the
+            # bundle afterwards and the signed bundle is zipped again in the
+            # collect step so the released archive carries the ticket.
+            ditto -c -k --keepParent "$APP" "$RUNNER_TEMP/rdm-notarize.zip"
+            xcrun notarytool submit "$RUNNER_TEMP/rdm-notarize.zip" \
               --apple-id "$APPLE_ID" --password "$APPLE_PASSWORD" \
               --team-id "$APPLE_TEAM_ID" --wait
             xcrun stapler staple "$APP"
@@ -181,6 +182,37 @@ jobs:
           Get-FileHash "rdm-${{ matrix.target }}.zip" -Algorithm SHA256 |
             ForEach-Object { "$($_.Hash)  rdm-${{ matrix.target }}.zip" } |
             Out-File "rdm-${{ matrix.target }}.zip.sha256"
+
+      # ---- collect the `dx bundle` installers -------------------------------
+      - name: Collect the AppImage (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          APPIMAGE="$(find target/dx -type f -name '*.AppImage' | head -1)"
+          test -n "$APPIMAGE" || { echo "::error::dx bundle produced no AppImage"; exit 1; }
+          cp "$APPIMAGE" "rdm-${{ matrix.target }}.AppImage"
+          sha256sum "rdm-${{ matrix.target }}.AppImage" > "rdm-${{ matrix.target }}.AppImage.sha256"
+
+      - name: Collect the .app and .dmg (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          APP="$(find target/dx -type d -name '*.app' | head -1)"
+          DMG="$(find target/dx -type f -name '*.dmg' | head -1)"
+          test -n "$APP" || { echo "::error::dx bundle produced no .app"; exit 1; }
+          test -n "$DMG" || { echo "::error::dx bundle produced no .dmg"; exit 1; }
+          ditto -c -k --keepParent "$APP" "rdm-${{ matrix.target }}.app.zip"
+          cp "$DMG" "rdm-${{ matrix.target }}.dmg"
+          shasum -a 256 "rdm-${{ matrix.target }}.app.zip" > "rdm-${{ matrix.target }}.app.zip.sha256"
+          shasum -a 256 "rdm-${{ matrix.target }}.dmg" > "rdm-${{ matrix.target }}.dmg.sha256"
+
+      - name: Collect the MSI (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $msi = Get-ChildItem -Recurse target/dx -Filter *.msi | Select-Object -First 1
+          if (-not $msi) { Write-Error "dx bundle produced no .msi"; exit 1 }
+          Copy-Item $msi.FullName "rdm-${{ matrix.target }}.msi"
+          $hash = (Get-FileHash "rdm-${{ matrix.target }}.msi" -Algorithm SHA256).Hash
+          "$hash  rdm-${{ matrix.target }}.msi" | Out-File "rdm-${{ matrix.target }}.msi.sha256"
 
       # ---- Linux: sign the checksums with a GPG key -------------------------
       - name: Sign checksums (Linux)

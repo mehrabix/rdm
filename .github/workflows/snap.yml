@@ -1,8 +1,12 @@
 name: Snap
 
-# Builds and publishes the snap. It must run on a host matching the snap's
-# `base:` (core24) — snapcraft refuses a core24 build on a 26.04 host, and LXD
-# builds need container networking, so the 24.04 runner is the reliable place.
+# Builds and publishes the snap to the Snap Store (edge).
+#
+# The build goes through `snapcore/action-build`, which provisions an
+# LXD-backed build environment — the recommended path on GitHub runners. The
+# previous `snapcraft pack --destructive-mode` step failed to install the GNOME
+# extension's build snap (`gnome-46-2404-sdk`): destructive mode installs build
+# snaps through the host snapd as a non-root user.
 #
 # The store credential comes from `snapcraft export-login` and lives in the
 # SNAPCRAFT_STORE_CREDENTIALS secret.
@@ -10,28 +14,56 @@ on:
   release:
     types: [published]
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version to package (e.g. 0.1.0); defaults to the latest release"
+        required: false
+        default: ""
 
 permissions:
   contents: read
 
 jobs:
   snap:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install snapcraft
+      # The manifest pins the release tarball it packages, so bake in the
+      # version actually being built.
+      - name: Resolve the version
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          sudo snap install snapcraft --classic
-          snapcraft --version
+          set -euo pipefail
+          VERSION="${{ github.event.inputs.version }}"
+          if [ -z "$VERSION" ] && [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          fi
+          if [ -z "$VERSION" ]; then
+            VERSION="$(gh release view --json tagName -q .tagName | sed 's/^v//')"
+          fi
+          echo "Packaging version $VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Stage the manifest at the project root
-        run: cp packaging/snap/snapcraft.yaml ./snapcraft.yaml
+      - name: Pin the manifest to the release
+        run: |
+          set -euo pipefail
+          V="${{ steps.version.outputs.version }}"
+          cp packaging/snap/snapcraft.yaml ./snapcraft.yaml
+          sed -i "s/^version: .*/version: \"$V\"/" ./snapcraft.yaml
+          sed -i "s|/releases/download/v[^/]*/|/releases/download/v$V/|" ./snapcraft.yaml
+          grep -E "^(version:|.*source:)" ./snapcraft.yaml
 
       - name: Build the snap
-        run: /snap/bin/snapcraft pack --destructive-mode
+        id: build
+        uses: snapcore/action-build@v1
 
       - name: Publish to the Snap Store (edge)
+        uses: snapcore/action-publish@v1
         env:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
-        run: /snap/bin/snapcraft upload --release=edge *.snap
+        with:
+          snap: ${{ steps.build.outputs.snap }}
+          release: edge

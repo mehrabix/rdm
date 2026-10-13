@@ -11,12 +11,20 @@ Each `v*` tag attaches, per platform:
 
 | Artifact | Built by |
 |---|---|
-| `rdm-linux-x86_64.tar.gz` | `dx build --release` (release directory) |
-| `rdm-windows-x86_64.zip` | same |
-| `rdm-macos-arm64.tar.gz` | same |
-| `*.sha256` for each | `shasum`/`Get-FileHash` |
+| `rdm-linux-x86_64.AppImage` | `dx bundle --package-types appimage` (linuxdeploy) |
+| `rdm-macos-arm64.app.zip` | `dx bundle --package-types macos` (signed + notarised when the Apple secrets exist) |
+| `rdm-macos-arm64.dmg` | `dx bundle --package-types dmg` (hdiutil) |
+| `rdm-windows-x86_64.msi` | `dx bundle --package-types msi` (WiX) |
+| `rdm-linux-x86_64.tar.gz`, `rdm-windows-x86_64.zip`, `rdm-macos-arm64.tar.gz` | the release directory from the same build |
+| `*.sha256` for each artifact | `sha256sum` / `shasum` / `Get-FileHash` |
 | `rdm_<version>_amd64.deb` | `packaging/linux/build-deb.sh` |
-| `rdm-<version>-1-x86_64.pkg.tar.zst` | `makepkg` on the PKGBUILD (see below) |
+| `rdm-<version>-1.x86_64.rpm` | `rpmbuild` on `packaging/rpm/rdm.spec` |
+
+The `.deb` and `.rpm` are assembled by `packaging/` from the release directory;
+the AppImage / `.app` / `.dmg` / `.msi` come from `dx bundle`, which packages the
+same build. `dx bundle` reads its package metadata from the `[bundle]` section of
+`Dioxus.toml` — **identifier and publisher are mandatory**, and the icons, name
+and category come from the same block.
 
 ## Package managers
 
@@ -94,7 +102,7 @@ Recipes are in the repo; the blocker is an account/credential, not code.
 | Manager | Recipe | Blocker to publish |
 |---|---|---|
 | **RPM** (Fedora/openSUSE) | `packaging/rpm/rdm.spec` — **built and attached by CI** | COPR (Fedora) or OBS account to host a repo |
-| **Snap** | `packaging/snap/snapcraft.yaml` | Snap Store account + `SNAPCRAFT_STORE_CREDENTIALS` |
+| **Snap** | `packaging/snap/snapcraft.yaml`, built by `.github/workflows/snap.yml` (`snapcore/action-build`) | Snap Store account + `SNAPCRAFT_STORE_CREDENTIALS` |
 | **Flatpak / Flathub** | `packaging/flatpak/com.mehrabix.RDM.yaml` | Flathub account + PR to `flathub/flathub` |
 | **Scoop** (Windows) | `packaging/scoop/rdm.json` | a `mehrabix/scoop-bucket` repo |
 | **Chocolatey** (Windows) | `packaging/chocolatey/rdm.nuspec` + `tools/chocolateyInstall.ps1` | chocolatey.org account + API key |
@@ -102,18 +110,22 @@ Recipes are in the repo; the blocker is an account/credential, not code.
 | **Nix** | `packaging/nix/default.nix` | a PR to nixpkgs (or host a flake) |
 | **winget** (Windows) | `packaging/winget/*.yaml` | PR to `microsoft/winget-pkgs` (or `wingetcreate`) |
 | **Homebrew** (macOS) | `packaging/homebrew/rdm.rb` | a `mehrabix/homebrew-rdm` tap; homebrew-cask wants a real `.app` |
-| **AppImage** | — | produced by `dx bundle` once bundling is fixed |
+| **AppImage** | built by CI (`dx bundle`) | — attached to every release |
 | **Guix / Gentoo / Void / Solus** | — | follow the same pattern (package the release tarball) |
 
-## The one thing that unblocks the rest
+## Bundling
 
-`dx bundle` currently fails on the runners (its `rust-objcopy` strip step), so
-`release.yml` falls back to `dx build --release` and we ship build directories
-instead of installers. The `.deb` and PKGBUILD above deliberately package the
-release directory themselves and don't depend on it.
+`dx bundle` previously failed on the runners (it bails when `Dioxus.toml` has no
+`[bundle]` identifier/publisher), so `release.yml` fell back to `dx build
+--release` and shipped build directories instead of installers. That is fixed:
+`Dioxus.toml` now carries a `[bundle]` block and `release.yml` runs
+`dx bundle --release` with an explicit package type per platform, so `.AppImage`,
+`.dmg`, `.app` and `.msi` are produced and attached on every release. `ci.yml`
+bundles on every push too, so a regression fails CI rather than a release.
 
-Fixing bundling would give us `.AppImage`, `.dmg`, `.msi` and a real `.app`,
-which in turn are prerequisites for Flathub, homebrew-cask and Snap.
+The remaining prerequisite for the *store* channels (Flathub, homebrew-cask
+upstream, the Snap store's non-snap path) is a signing certificate or an account,
+not bundling.
 
 ## Signing
 

@@ -57,8 +57,12 @@ scoop install rdm
 ### Direct download
 
 Grab a build from the [latest release](https://github.com/mehrabix/rdm/releases/latest):
-`.deb`, `.rpm`, and per-platform archives (`.tar.gz` / `.zip`) with `.sha256`
-checksums.
+
+- **Linux** — `rdm-linux-x86_64.AppImage` (chmod +x and run), `.deb`, `.rpm`
+- **macOS** — `rdm-macos-arm64.dmg` or the zipped `RDM.app`
+- **Windows** — `rdm-windows-x86_64.msi`
+
+Every artifact ships a `.sha256` checksum.
 
 ### Not yet available
 
@@ -67,7 +71,6 @@ checksums.
 | winget | manifests written, submission PR pending |
 | Arch (AUR) | `PKGBUILD` written, needs an AUR SSH key |
 | Snap / Flathub / Chocolatey | recipes written, need store accounts |
-| AppImage / `.dmg` / `.msi` | blocked on the bundler's strip step |
 
 See [docs/PACKAGING.md](docs/PACKAGING.md) for the full matrix and exactly what
 each channel is waiting on.
@@ -118,7 +121,7 @@ Most Linux download tools either do one stream well (`curl`, `wget`) or wrap
 | Queue persistence + restore on launch, throughput graph | ✅ |
 | Automation: batch + clipboard import, category folders, duplicate detection, daily-window scheduler | ✅ |
 | Languages: 7 translated (en, es, fr, de, pt, ru, zh); ~34 listed, others fall back to English | 🟡 |
-| Distribution: apt, dnf/zypper, Homebrew, Scoop | ✅ |
+| Distribution: apt, dnf/zypper, Homebrew, Scoop, AppImage/`.dmg`/`.msi` installers | ✅ |
 | winget, AUR, Snap, Flathub, Chocolatey | ⬜ accounts/PRs pending |
 | Live dynamic segmentation, per-download speed limit | ⬜ |
 | Browser integration, media grabber, site grabber | ⬜ Phases 3–4 |

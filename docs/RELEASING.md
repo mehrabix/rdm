@@ -21,9 +21,15 @@ gh release create v0.1.0 --generate-notes
 
 `release.yml` uploads, per platform:
 
-- `rdm-linux-x86_64.tar.gz` (+ `.sha256`)
-- `rdm-windows-x86_64.zip` (+ `.sha256`)
-- `rdm-macos-arm64.tar.gz` (+ `.sha256`)
+- `rdm-linux-x86_64.AppImage` (+ `.sha256`)
+- `rdm-macos-arm64.app.zip` and `rdm-macos-arm64.dmg` (+ `.sha256` each)
+- `rdm-windows-x86_64.msi` (+ `.sha256`)
+- `rdm-linux-x86_64.tar.gz`, `rdm-windows-x86_64.zip`, `rdm-macos-arm64.tar.gz` (+ `.sha256`)
+- `rdm_<version>_amd64.deb` and `rdm-<version>-1.x86_64.rpm`
+
+The installers come from `dx bundle` (see [PACKAGING.md](./PACKAGING.md)); the
+package metadata (identifier, publisher, icons, category) lives in the `[bundle]`
+section of `Dioxus.toml`.
 
 ## Signing
 

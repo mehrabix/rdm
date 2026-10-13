@@ -4,3 +4,33 @@ default_platform = "desktop"
 
 [web.app]
 title = "RDM — Rust Download Manager"
+
+# `dx bundle` refuses to run on desktop targets without an `identifier` and a
+# `publisher`; the rest shapes the generated packages (AppImage / .app / .dmg /
+# .msi). Icons are resolved relative to the crate root: the PNGs feed the Linux
+# hicolor theme and the macOS `.icns`, the `.ico` is used on Windows.
+[bundle]
+identifier = "io.github.mehrabix.rdm"
+publisher = "mehrabix"
+category = "Utility"
+copyright = "© 2026 mehrabix"
+short_description = "Fast, resumable, multi-connection download manager"
+long_description = """
+RDM (Rust Download Manager) splits a file into many parallel HTTP range
+requests, resumes after any interruption, and runs native on Linux, Windows
+and macOS — one Rust binary, no Electron.
+"""
+icon = [
+    "assets/icon-512.png",
+    "assets/icon-256.png",
+    "assets/icon-128.png",
+    "assets/icon-64.png",
+    "assets/icon-32.png",
+]
+
+[bundle.windows]
+icon_path = "assets/icon.ico"
+
+[bundle.macos]
+bundle_name = "RDM"
+minimum_system_version = "10.15"
