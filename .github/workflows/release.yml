@@ -77,8 +77,25 @@ jobs:
         if: runner.os == 'Linux'
         run: bash scripts/make-icon.sh
 
+      # `dx bundle` strips the built binary with `rust-objcopy`, which on the
+      # macOS arm64 runners fails with "Library not loaded: libLLVM.dylib"
+      # unless the llvm-tools component is present.
+      - name: LLVM tools (macOS)
+        if: runner.os == 'macOS'
+        run: rustup component add llvm-tools-preview
+
+      # Bundling is best-effort: if it fails we still ship a working release
+      # build rather than failing the whole release. `dx build --release` writes
+      # the same target/dx/rdm/release directory the packaging steps read.
       - name: Bundle (release)
-        run: dx bundle --desktop --release
+        shell: bash
+        run: |
+          if dx bundle --desktop --release; then
+            echo "bundled"
+          else
+            echo "::warning title=Bundling failed::dx bundle failed; falling back to dx build --release"
+            dx build --desktop --release
+          fi
 
       # ---- macOS: sign + notarise -------------------------------------------
       - name: Import Apple signing certificate
