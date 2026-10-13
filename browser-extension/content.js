@@ -1,9 +1,47 @@
-// RDM content script: find media on the page, overlay a download badge on each
-// video, and answer the toolbar popup with what we have seen.
+// RDM content script: find media on the page, overlay a dismissible download
+// badge on each video, and answer the toolbar popup with what we have seen.
 
 const api = globalThis.browser ?? globalThis.chrome;
 const BADGE_CLASS = "rdm-badge";
 const found = new Set();
+
+/// Whether badges are shown; persisted so dismissing one hides them everywhere.
+let badgesEnabled = true;
+
+function storageGet(key, fallback, cb) {
+  try {
+    const maybe = api.storage.local.get({ [key]: fallback }, (v) => cb(v[key]));
+    if (maybe && typeof maybe.then === "function") {
+      maybe.then((v) => cb(v[key]), () => cb(fallback));
+    }
+  } catch (_) {
+    cb(fallback);
+  }
+}
+
+function storageSet(key, value) {
+  try {
+    api.storage.local.set({ [key]: value });
+  } catch (_) {
+    /* ignore */
+  }
+}
+
+storageGet("badges", true, (enabled) => {
+  badgesEnabled = enabled !== false;
+  if (!badgesEnabled) removeBadges();
+});
+
+try {
+  api.storage.onChanged.addListener((changes, area) => {
+    if (area !== "local" || !changes.badges) return;
+    badgesEnabled = changes.badges.newValue !== false;
+    if (badgesEnabled) scan();
+    else removeBadges();
+  });
+} catch (_) {
+  /* storage may be unavailable */
+}
 
 function record(url) {
   if (url && /^https?:/i.test(url) && !found.has(url)) {
@@ -36,16 +74,30 @@ function request(url) {
   });
 }
 
+function removeBadges() {
+  document.querySelectorAll("." + BADGE_CLASS).forEach((el) => el.remove());
+}
+
+/// Hide the badges everywhere, and remember it so they stay hidden.
+function dismissBadges() {
+  badgesEnabled = false;
+  removeBadges();
+  storageSet("badges", false);
+}
+
 function addBadge(element) {
-  if (element.dataset.rdmBadged) return;
+  if (!badgesEnabled || element.dataset.rdmBadged) return;
   element.dataset.rdmBadged = "1";
 
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = BADGE_CLASS;
-  button.textContent = "⬇ Download using RDM";
-  button.title = "Download using RDM";
-  button.addEventListener(
+  const wrap = document.createElement("div");
+  wrap.className = BADGE_CLASS;
+
+  const go = document.createElement("button");
+  go.type = "button";
+  go.className = "rdm-badge-go";
+  go.textContent = "⬇ Download using RDM";
+  go.title = "Download using RDM";
+  go.addEventListener(
     "click",
     (event) => {
       event.preventDefault();
@@ -55,12 +107,30 @@ function addBadge(element) {
     true,
   );
 
+  const close = document.createElement("button");
+  close.type = "button";
+  close.className = "rdm-badge-close";
+  close.textContent = "×";
+  close.title = "Hide these buttons";
+  close.addEventListener(
+    "click",
+    (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      dismissBadges();
+    },
+    true,
+  );
+
+  wrap.appendChild(go);
+  wrap.appendChild(close);
+
   const parent = element.parentElement;
   if (!parent) return;
   if (getComputedStyle(parent).position === "static") {
     parent.style.position = "relative";
   }
-  parent.appendChild(button);
+  parent.appendChild(wrap);
 }
 
 function scan() {
@@ -94,7 +164,7 @@ setInterval(scan, 2500);
 api.runtime.onMessage.addListener((message, _sender, respond) => {
   if (message && message.type === "rdm:list") {
     scan();
-    respond({ media: Array.from(found) });
+    respond({ media: Array.from(found), badges: badgesEnabled });
     return true;
   }
   return undefined;

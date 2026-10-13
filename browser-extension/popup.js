@@ -66,5 +66,23 @@ document.getElementById("page").addEventListener("click", () => {
   });
 });
 
+// Toggle the in-page "Download using RDM" badges (persisted; the badge's own ×
+// turns them off, and this turns them back on).
+const badges = document.getElementById("badges");
+try {
+  api.storage.local.get({ badges: true }, (v) => {
+    badges.checked = v.badges !== false;
+  });
+} catch (_) {
+  badges.checked = true;
+}
+badges.addEventListener("change", () => {
+  try {
+    api.storage.local.set({ badges: badges.checked });
+  } catch (_) {
+    /* ignore */
+  }
+});
+
 ping();
 loadMedia();

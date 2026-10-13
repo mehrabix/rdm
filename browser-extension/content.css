@@ -3,20 +3,40 @@
   top: 8px;
   left: 8px;
   z-index: 2147483647;
-  margin: 0;
-  padding: 4px 10px;
-  font: 600 12px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
-  white-space: nowrap;
-  color: #fff;
-  background: rgba(37, 99, 235, 0.92);
-  border: 0;
+  display: flex;
+  align-items: stretch;
+  overflow: hidden;
   border-radius: 6px;
-  cursor: pointer;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
-  opacity: 0.9;
-  transition: opacity 0.15s ease;
+  font: 600 12px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+  opacity: 0.5;
+  transition: opacity 0.2s ease;
 }
 
 .rdm-badge:hover {
   opacity: 1;
+}
+
+.rdm-badge button {
+  margin: 0;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  color: #fff;
+  background: rgba(37, 99, 235, 0.95);
+}
+
+.rdm-badge .rdm-badge-go {
+  padding: 4px 10px;
+  white-space: nowrap;
+}
+
+.rdm-badge .rdm-badge-close {
+  padding: 4px 8px;
+  background: rgba(30, 64, 175, 0.95);
+  font-weight: 700;
+}
+
+.rdm-badge .rdm-badge-close:hover {
+  background: rgba(185, 28, 28, 0.95);
 }
