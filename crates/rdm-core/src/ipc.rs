@@ -44,7 +44,15 @@ pub enum Request {
         height: Option<u32>,
     },
     /// List the video heights a URL offers (for a quality picker).
-    Qualities { url: String },
+    Qualities {
+        url: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        cookies: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        user_agent: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        referer: Option<String>,
+    },
 }
 
 /// The reply to a [`Request`].
@@ -149,7 +157,15 @@ async fn add(
 async fn dispatch(manager: &Arc<DownloadManager>, opts: &ServeOptions, req: Request) -> Response {
     match req {
         Request::Ping => Response::ok(None),
-        Request::Qualities { url } => match manager.qualities(&url).await {
+        Request::Qualities {
+            url,
+            cookies,
+            user_agent,
+            referer,
+        } => match manager
+            .qualities(&url, cookies.as_deref(), user_agent.as_deref(), referer.as_deref())
+            .await
+        {
             Ok(heights) => Response::ok(None).with_heights(heights),
             Err(err) => Response::error(err.to_string()),
         },
@@ -305,7 +321,10 @@ mod tests {
         assert_eq!(
             req,
             Request::Qualities {
-                url: "https://x/v".into()
+                url: "https://x/v".into(),
+                cookies: None,
+                user_agent: None,
+                referer: None,
             }
         );
         let resp = Response::ok(None).with_heights(vec![1080, 720]);

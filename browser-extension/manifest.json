@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "RDM — Download with RDM",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "description": "Send links and page media to RDM (Rust Download Manager) — right-click, or the toolbar button.",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsu+YneMq+n6LX15lxL0WyoB/5mrV2SZ/Zl8hGAsLj2ke5z/4ZyT0SNCNCZ/HDsg742Ij7u0z/is2q3tGDjSt/QCGh49inBE3PFP9V6ugMh5oRJYZxu27X/qdWENg1Vlkw9eQwzet+rnbuwoS+L/xn1nDJUcGob9c+fUf55p76HpzLPPlOWBjzjby90CasqpZ6HeVAZDe+NYG/4BGYMw7rIY6ZlO3sumK1cVzp8Q2L2LrLBTFCIigERdv0Rq0iuACw5j6TeuRmujmq7eCma162TH6JKueBUv1uZYJK5hVck+jfvO4fPBTTIrraYzJ6A0qaGe2EIu8q4pED5YsX2VxlwIDAQAB",
   "background": { "service_worker": "background.js" },

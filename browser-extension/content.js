@@ -150,7 +150,7 @@ function openMenu(anchor, url) {
 
   document.body.appendChild(menu);
 
-  api.runtime.sendMessage({ type: "rdm:qualities", url }, (res) => {
+  api.runtime.sendMessage({ type: "rdm:qualities", url, referer: location.href }, (res) => {
     const err = api.runtime.lastError;
     note.remove();
     if (err || !res || !res.ok || !res.heights || res.heights.length === 0) {

@@ -155,8 +155,12 @@ RDM handles the easy cases natively and delegates the hard ones to
 
 `pipx`/`pip --user` installs (`~/.local/bin`) are preferred over distro packages
 — distro `yt-dlp` is often too old for YouTube, which is why RDM searches
-`~/.local/bin` first. If `yt-dlp` is missing, RDM fails the download with
-*"install yt-dlp"* rather than silently doing nothing.
+`~/.local/bin` first. RDM also looks in the usual version-manager directories
+(`~/.nvm/versions/node/*/bin`, `~/.volta/bin`, `~/.deno/bin`, `~/.bun/bin`,
+`~/.local/share/pnpm`) **in addition to** `PATH`, because an app launched from
+the desktop gets a session `PATH` that normally omits them — a `node` installed
+via `nvm` is invisible to it otherwise. If `yt-dlp` is missing, RDM fails the
+download with *"install yt-dlp"* rather than silently doing nothing.
 
 RDM passes `--remote-components ejs:github` whenever it finds a JS runtime, which
 is what makes YouTube's signature/`n` challenge solvable — without it you get
@@ -222,7 +226,15 @@ RDM isn't up, so there's no socket. Start the app; the popup flips to
 **A YouTube download fails with "The page needs to be reloaded" / "Signature solving failed".**
 `yt-dlp` is too old, or there's no JS runtime. Update it (`pipx upgrade yt-dlp`)
 and install `node`. RDM enables the EJS challenge solver automatically once a
-runtime is present.
+runtime is present, and searches the version-manager directories as well as
+`PATH` (see above), so an `nvm` `node` is found even from a desktop launch.
+
+**The quality menu says "Sign in to confirm you're not a bot".**
+The site wants your cookies. Downloading from the extension always forwards
+them; the quality menu does too, so reload the extension if you see this on an
+older build. If it persists, sign in to the site in that browser — note that
+`yt-dlp`'s own `--cookies-from-browser` can fail while the browser is running,
+which is why RDM prefers the cookies the extension hands it.
 
 **The downloaded file is a `.php`/`.html` page instead of the video.**
 That's the probe seeing `text/html`. RDM re-routes these to `yt-dlp`; if it still

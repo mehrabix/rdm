@@ -34,14 +34,44 @@ pub fn format_selector(max_height: Option<u32>) -> String {
     }
 }
 
+/// Directories a version manager installs into, which a GUI app's `PATH` — set
+/// by the session, not the user's shell — usually omits. Newest nvm first.
+fn version_manager_dirs(home: &Path) -> Vec<PathBuf> {
+    let mut dirs = Vec::new();
+    if let Ok(entries) = std::fs::read_dir(home.join(".nvm/versions/node")) {
+        let mut versions: Vec<PathBuf> = entries
+            .flatten()
+            .map(|entry| entry.path().join("bin"))
+            .collect();
+        versions.sort();
+        versions.reverse();
+        dirs.extend(versions);
+    }
+    for dir in [
+        ".volta/bin",
+        ".deno/bin",
+        ".bun/bin",
+        ".local/share/pnpm",
+        ".npm-global/bin",
+        ".cargo/bin",
+    ] {
+        dirs.push(home.join(dir));
+    }
+    dirs
+}
+
 /// Directories to search, most specific first: a `pipx`/`pip --user` install in
 /// `~/.local/bin` beats a distro copy, and a GUI app's `PATH` may omit it.
 fn search_dirs() -> Vec<PathBuf> {
     let mut dirs = Vec::new();
     if let Some(home) = std::env::var_os("HOME") {
-        dirs.push(PathBuf::from(&home).join(".local/bin"));
+        let home = PathBuf::from(&home);
+        dirs.push(home.join(".local/bin"));
+        dirs.extend(version_manager_dirs(&home));
     }
-    dirs.push(PathBuf::from("/usr/local/bin"));
+    for dir in ["/usr/local/bin", "/snap/bin", "/opt/homebrew/bin"] {
+        dirs.push(PathBuf::from(dir));
+    }
     if let Some(path) = std::env::var_os("PATH") {
         dirs.extend(std::env::split_paths(&path));
     }
@@ -138,6 +168,22 @@ pub fn list_args(url: &str, opts: &Options<'_>) -> Vec<String> {
     args
 }
 
+/// A short, actionable hint for the errors that need one, else `None`.
+///
+/// yt-dlp's own messages say *what* failed but not what RDM needs from you.
+pub fn hint(stderr: &str) -> Option<&'static str> {
+    let lower = stderr.to_ascii_lowercase();
+    if lower.contains("confirm you") && lower.contains("not a bot") {
+        Some("Sign in to the site in your browser, and install node or deno so yt-dlp can use cookies and solve challenges.")
+    } else if lower.contains("needs to be reloaded") || lower.contains("signature solving") {
+        Some("Install node or deno: yt-dlp needs a JavaScript runtime to solve this site's player challenge.")
+    } else if lower.contains("ffmpeg") && lower.contains("not found") {
+        Some("Install ffmpeg: it is required to merge separate video and audio tracks.")
+    } else {
+        None
+    }
+}
+
 /// Distinct video heights advertised in a `yt-dlp -J` dump, largest first.
 pub fn parse_heights(json: &str) -> Vec<u32> {
     let Ok(value) = serde_json::from_str::<serde_json::Value>(json) else {
@@ -173,6 +219,34 @@ mod tests {
             format_selector(Some(720)),
             "bv*[height<=720]+ba/b[height<=720]"
         );
+    }
+
+    #[test]
+    fn version_manager_dirs_prefer_the_newest_nvm() {
+        let home = std::env::temp_dir().join(format!("rdm-nvm-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&home);
+        for version in ["v18.0.0", "v20.1.0"] {
+            std::fs::create_dir_all(
+                home.join(".nvm/versions/node").join(version).join("bin"),
+            )
+            .unwrap();
+        }
+        let dirs = version_manager_dirs(&home);
+        assert!(dirs[0].ends_with("v20.1.0/bin"), "got {:?}", dirs.first());
+        assert!(dirs.iter().any(|d| d.ends_with(".volta/bin")));
+        let _ = std::fs::remove_dir_all(&home);
+    }
+
+    #[test]
+    fn hint_names_the_tool_to_install() {
+        assert!(hint("ERROR: [youtube] x: The page needs to be reloaded.")
+            .unwrap()
+            .contains("node"));
+        assert!(hint("Sign in to confirm you're not a bot")
+            .unwrap()
+            .contains("Sign in"));
+        assert!(hint("ffmpeg not found").unwrap().contains("ffmpeg"));
+        assert!(hint("some unrelated failure").is_none());
     }
 
     #[test]

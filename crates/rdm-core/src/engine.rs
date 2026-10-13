@@ -307,11 +307,22 @@ impl DownloadManager {
 
     /// The video heights a URL offers, largest first, for a quality picker.
     /// Runs `yt-dlp -J`; empty when the tool is missing or the URL has no video.
-    pub async fn qualities(&self, url: &str) -> Result<Vec<u32>> {
+    /// The caller's cookies are forwarded, since the same sites that block a
+    /// download also refuse to list formats anonymously.
+    pub async fn qualities(
+        &self,
+        url: &str,
+        cookies: Option<&str>,
+        user_agent: Option<&str>,
+        referer: Option<&str>,
+    ) -> Result<Vec<u32>> {
         let binary =
             ytdlp::find_binary().ok_or_else(|| Error::invalid("yt-dlp is not installed"))?;
         let js_runtime = ytdlp::find_js_runtime();
         let opts = ytdlp::Options {
+            cookies: cookies.filter(|value| !value.trim().is_empty()),
+            user_agent,
+            referer,
             cookies_from_browser: self.config.ytdlp_cookies_from_browser.as_deref(),
             js_runtime: js_runtime.as_deref(),
             ..ytdlp::Options::default()
@@ -326,12 +337,10 @@ impl DownloadManager {
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            let detail = stderr
-                .lines()
-                .rev()
-                .find(|line| !line.trim().is_empty())
-                .unwrap_or("yt-dlp could not list formats");
-            return Err(Error::internal(detail.to_string()));
+            return Err(Error::internal(ytdlp_failure(
+                &stderr,
+                "yt-dlp could not list formats",
+            )));
         }
         Ok(ytdlp::parse_heights(&String::from_utf8_lossy(&output.stdout)))
     }
@@ -862,11 +871,7 @@ impl DownloadManager {
             if let Some(mut err) = child.stderr.take() {
                 let _ = err.read_to_string(&mut stderr).await;
             }
-            let detail = stderr
-                .lines()
-                .rev()
-                .find(|line| !line.trim().is_empty())
-                .unwrap_or("yt-dlp failed");
+            let detail = ytdlp_failure(&stderr, "yt-dlp failed");
             tracing::warn!(%id, "yt-dlp failed: {detail}");
             return Err(Error::internal(format!("yt-dlp failed: {detail}")));
         }
@@ -1291,6 +1296,21 @@ async fn preallocate(path: &Path, total: u64) -> Result<()> {
     let file = OpenOptions::new().write(true).create(true).open(path).await?;
     file.set_len(total).await?;
     Ok(())
+}
+
+/// yt-dlp's last stderr line, plus an actionable hint when we have one.
+fn ytdlp_failure(stderr: &str, fallback: &str) -> String {
+    let detail = stderr
+        .lines()
+        .rev()
+        .find(|line| !line.trim().is_empty())
+        .map(str::trim)
+        .filter(|line| line.contains("ERROR") || !line.is_empty())
+        .unwrap_or(fallback);
+    match ytdlp::hint(stderr) {
+        Some(hint) => format!("{detail} — {hint}"),
+        None => detail.to_string(),
+    }
 }
 
 fn not_found(id: &str) -> Error {

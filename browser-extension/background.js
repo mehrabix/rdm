@@ -63,12 +63,14 @@ async function queue(url, referer, height) {
 }
 
 /// Ask RDM which video heights a URL offers.
-async function qualities(url) {
+async function qualities(url, referer) {
   if (!/^https?:/i.test(url || "")) {
     return { ok: false, error: "not an http(s) URL" };
   }
   try {
-    const response = await sendNative({ action: "qualities", url });
+    // Same cookies as a download: sites that gate downloads gate format lists.
+    const cookies = await cookiesFor(url);
+    const response = await sendNative({ action: "qualities", url, referer, cookies });
     if (!response) return { ok: false, error: "no response from RDM" };
     return response;
   } catch (err) {
@@ -106,7 +108,7 @@ api.runtime.onMessage.addListener((message, _sender, respond) => {
     return true; // keep the channel open for the async reply
   }
   if (message.type === "rdm:qualities") {
-    qualities(message.url).then(respond);
+    qualities(message.url, message.referer).then(respond);
     return true;
   }
   if (message.type === "rdm:ping") {

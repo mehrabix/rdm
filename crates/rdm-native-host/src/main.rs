@@ -52,6 +52,9 @@ fn to_request(message: &Value) -> Request {
                 .and_then(Value::as_str)
                 .unwrap_or_default()
                 .to_string(),
+            cookies: opt_string(message, "cookies"),
+            user_agent: opt_string(message, "user_agent"),
+            referer: opt_string(message, "referer"),
         },
         _ => Request::Add {
             url: message
