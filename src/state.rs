@@ -10,14 +10,22 @@ use rdm_core::{
     Category, DownloadManager, DownloadSpec, DownloadStatus, DownloadTask, EngineConfig,
 };
 
-/// The single engine instance, shared by every component.
+use crate::settings;
+
+/// The single engine instance, shared by every component. Sized from the
+/// settings loaded at startup.
 static ENGINE: OnceLock<Arc<DownloadManager>> = OnceLock::new();
 
 pub fn engine() -> Arc<DownloadManager> {
     ENGINE
         .get_or_init(|| {
-            DownloadManager::new(EngineConfig::default())
-                .expect("failed to construct the RDM download engine")
+            let boot = settings::boot();
+            let config = EngineConfig {
+                max_concurrent: boot.max_concurrent.max(1) as usize,
+                default_connections: boot.connections.max(1),
+                queue_limits: boot.queue_limits(),
+            };
+            DownloadManager::new(config).expect("failed to construct the RDM download engine")
         })
         .clone()
 }
@@ -56,20 +64,21 @@ impl Filter {
         Filter::Other,
     ];
 
-    pub fn label(self) -> &'static str {
+    /// i18n key for this filter's label.
+    pub fn label_key(self) -> &'static str {
         match self {
-            Filter::All => "All downloads",
-            Filter::Active => "Active",
-            Filter::Queued => "Queued",
-            Filter::Finished => "Finished",
-            Filter::Unfinished => "Unfinished",
-            Filter::Compressed => "Compressed",
-            Filter::Documents => "Documents",
-            Filter::Music => "Music",
-            Filter::Programs => "Programs",
-            Filter::Video => "Video",
-            Filter::Images => "Images",
-            Filter::Other => "Other",
+            Filter::All => "sidebar.all",
+            Filter::Active => "sidebar.active",
+            Filter::Queued => "sidebar.queued",
+            Filter::Finished => "sidebar.finished",
+            Filter::Unfinished => "sidebar.unfinished",
+            Filter::Compressed => "sidebar.compressed",
+            Filter::Documents => "sidebar.documents",
+            Filter::Music => "sidebar.music",
+            Filter::Programs => "sidebar.programs",
+            Filter::Video => "sidebar.video",
+            Filter::Images => "sidebar.images",
+            Filter::Other => "sidebar.other",
         }
     }
 
@@ -99,7 +108,11 @@ pub struct Downloads {
     pub filter: Signal<Filter>,
     pub query: Signal<String>,
     pub show_add: Signal<bool>,
+    pub show_batch: Signal<bool>,
+    pub show_options: Signal<bool>,
     pub connections: Signal<u8>,
+    /// Queue new downloads are assigned to.
+    pub queue: Signal<String>,
 }
 
 impl Downloads {
@@ -139,6 +152,8 @@ impl Downloads {
             .count()
     }
 
+    // ---- view toggles ----------------------------------------------------
+
     pub fn set_filter(&self, filter: Filter) {
         set(self.filter, filter);
     }
@@ -159,16 +174,119 @@ impl Downloads {
         set(self.show_add, false);
     }
 
+    pub fn open_options(&self) {
+        set(self.show_options, true);
+    }
+
+    pub fn close_options(&self) {
+        set(self.show_options, false);
+    }
+
     pub fn set_connections(&self, n: u8) {
         set(self.connections, n.clamp(1, 32));
     }
 
-    pub fn add(&self, url: String, dir: PathBuf) {
-        let connections = *self.connections.read();
-        let spec = DownloadSpec::new(url, dir).connections(connections);
+    /// Stop a queue: its running transfers pause and new ones wait.
+    pub fn stop_queue(&self, queue: String) {
         spawn(async move {
-            let _ = engine().add(spec).await;
+            engine().stop_queue(&queue).await;
         });
+    }
+
+    /// Start a queue again, resuming what it paused.
+    pub fn start_queue(&self, queue: String) {
+        let engine = engine();
+        spawn(async move {
+            engine.start_queue(&queue).await;
+        });
+    }
+
+    // ---- engine actions --------------------------------------------------
+
+    /// Fire-and-forget queue (menu / clipboard / batch paths). Errors are logged.
+    pub fn add(&self, url: String, dir: PathBuf, organize: bool) {
+        let state = *self;
+        spawn(async move {
+            if let Err(err) = state.try_add(url, dir, organize).await {
+                tracing::error!(%err, "could not queue download");
+            }
+        });
+    }
+
+    /// Queue a URL and report failures to the caller. An identical URL that is
+    /// still queued/running/finished is not queued twice — the existing row is
+    /// selected instead. Returns the engine error so the UI can show it.
+    pub async fn try_add(
+        &self,
+        url: String,
+        dir: PathBuf,
+        organize: bool,
+    ) -> rdm_core::Result<()> {
+        if let Some(existing) = self.find_by_url(&url) {
+            self.select(Some(existing));
+            return Ok(());
+        }
+
+        let connections = *self.connections.read();
+        let queue = self.queue.read().clone();
+        let mut spec = DownloadSpec::new(url, dir).connections(connections);
+        spec.queue = queue;
+
+        if organize {
+            // Put the file in a per-category subfolder (IDM style). The file name
+            // — and therefore the category — is only known after probing.
+            if let Ok(info) = engine().probe(&spec).await {
+                let folder = match Category::from_filename(&info.file_name) {
+                    Category::Compressed => "Compressed",
+                    Category::Documents => "Documents",
+                    Category::Music => "Music",
+                    Category::Programs => "Programs",
+                    Category::Video => "Video",
+                    Category::Images => "Images",
+                    Category::Other => "Other",
+                };
+                let target = spec.output_dir.join(folder);
+                let _ = tokio::fs::create_dir_all(&target).await;
+                spec.output_dir = target;
+            }
+        }
+
+        engine().add(spec).await.map(|_| ())
+    }
+
+    /// Id of an existing task for `url` that is not failed/cancelled.
+    fn find_by_url(&self, url: &str) -> Option<String> {
+        self.tasks
+            .read()
+            .iter()
+            .find(|task| {
+                task.spec.url == url
+                    && !matches!(
+                        task.status,
+                        DownloadStatus::Failed | DownloadStatus::Cancelled
+                    )
+            })
+            .map(|task| task.id.clone())
+    }
+
+    /// Queue every http(s) URL in `raw` — newline separated, or a path to a
+    /// `.txt` file. Returns how many were queued.
+    pub fn import_text(&self, raw: &str, base: PathBuf, organize: bool) -> usize {
+        let trimmed = raw.trim();
+        let content = if !trimmed.contains('\n') && trimmed.ends_with(".txt") {
+            std::fs::read_to_string(trimmed).unwrap_or_else(|_| raw.to_string())
+        } else {
+            raw.to_string()
+        };
+        let mut queued = 0;
+        for line in content.lines() {
+            let url = line.trim();
+            if url.starts_with("http://") || url.starts_with("https://") {
+                self.add(url.to_string(), base.clone(), organize);
+                queued += 1;
+            }
+        }
+        queued
     }
 
     pub fn pause(&self, id: String) {
@@ -195,16 +313,19 @@ impl Downloads {
         });
     }
 
-    /// Pause every transfer that is running or waiting.
-    pub fn pause_all(&self) {
-        let ids: Vec<String> = self
-            .tasks
+    /// Ids of every transfer that is running or waiting.
+    pub fn running_ids(&self) -> Vec<String> {
+        self.tasks
             .read()
             .iter()
             .filter(|t| t.status.is_active() || t.status == DownloadStatus::Queued)
             .map(|t| t.id.clone())
-            .collect();
-        for id in ids {
+            .collect()
+    }
+
+    /// Pause every transfer that is running or waiting.
+    pub fn pause_all(&self) {
+        for id in self.running_ids() {
             spawn(async move {
                 let _ = engine().pause(&id).await;
             });
@@ -232,6 +353,33 @@ impl Downloads {
         }
     }
 
+    /// Forget every transfer that has finished.
+    pub fn remove_completed(&self) {
+        let ids: Vec<String> = self
+            .tasks
+            .read()
+            .iter()
+            .filter(|t| t.status == DownloadStatus::Completed)
+            .map(|t| t.id.clone())
+            .collect();
+        for id in ids {
+            spawn(async move {
+                let _ = engine().remove(&id, false).await;
+            });
+        }
+    }
+
+    /// Queue every http(s) URL found on the system clipboard; if there is
+    /// nothing usable, open the Add dialog so the user can paste manually.
+    pub fn import_clipboard(&self) {
+        let boot = settings::boot();
+        let dir = boot.download_dir.clone();
+        let organize = boot.organize_by_category;
+        if self.import_text(&clipboard_text(), dir, organize) == 0 {
+            self.open_add();
+        }
+    }
+
     /// Reveal a completed download in the OS file manager.
     pub fn open_folder(&self, path: PathBuf) {
         if let Some(dir) = path.parent() {
@@ -253,6 +401,23 @@ fn set<T: 'static>(mut signal: Signal<T>, value: T) {
     signal.set(value);
 }
 
+/// Read text from the system clipboard (Wayland first, then X11). Empty string
+/// when neither tool is available.
+pub fn clipboard_text() -> String {
+    let readers: [(&str, &[&str]); 2] = [
+        ("wl-paste", &["--no-newline"]),
+        ("xclip", &["-selection", "clipboard", "-o"]),
+    ];
+    for (cmd, args) in readers {
+        if let Ok(output) = std::process::Command::new(cmd).args(args).output() {
+            if output.status.success() {
+                return String::from_utf8_lossy(&output.stdout).into_owned();
+            }
+        }
+    }
+    String::new()
+}
+
 pub fn file_name(task: &DownloadTask) -> String {
     task.output_path()
         .file_name()
@@ -261,21 +426,50 @@ pub fn file_name(task: &DownloadTask) -> String {
         .unwrap_or_else(|| task.id.clone())
 }
 
-/// Mount the engine mirror. The engine lives on the app's async runtime; we
-/// poll it a few times a second and push snapshots into a signal so the UI
-/// stays reactive. (Event streaming can replace the poll once the UI settles.)
+/// Mount the engine mirror. On first run we restore the persisted queue, then
+/// poll the engine a few times a second and periodically snapshot the queue to
+/// disk so a restart picks up where we left off.
 pub fn use_downloads() -> Downloads {
     let tasks = use_signal(Vec::<DownloadTask>::new);
     let selected = use_signal(|| None::<String>);
     let filter = use_signal(Filter::default);
     let query = use_signal(String::new);
     let show_add = use_signal(|| false);
-    let connections = use_signal(|| 8u8);
+    let show_batch = use_signal(|| false);
+    let show_options = use_signal(|| false);
+    let connections = use_signal(|| settings::boot().connections.max(1));
+    let queue = use_signal(|| {
+        settings::boot()
+            .queue_names()
+            .first()
+            .cloned()
+            .unwrap_or_else(|| "Main".to_string())
+    });
 
     use_future(move || async move {
         let mut tasks = tasks;
+
+        // Restore anything left over from a previous session.
+        let queue_path = rdm_core::store::default_queue_path();
+        for task in rdm_core::store::load_queue(&queue_path) {
+            let _ = engine().restore(task).await;
+        }
+
+        let mut ticks: u32 = 0;
         loop {
-            tasks.set(engine().list().await);
+            let snapshot = engine().list().await;
+            tasks.set(snapshot.clone());
+
+            // Persist roughly every 3 seconds (10 x 300 ms).
+            ticks = ticks.wrapping_add(1);
+            if ticks % 10 == 0 {
+                let path = queue_path.clone();
+                let _ = tokio::task::spawn_blocking(move || {
+                    let _ = rdm_core::store::save_queue(&snapshot, &path);
+                })
+                .await;
+            }
+
             tokio::time::sleep(Duration::from_millis(300)).await;
         }
     });
@@ -286,6 +480,9 @@ pub fn use_downloads() -> Downloads {
         filter,
         query,
         show_add,
+        show_batch,
+        show_options,
         connections,
+        queue,
     }
 }

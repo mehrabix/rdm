@@ -183,3 +183,73 @@ async fn remove_deletes_partial_file() {
     assert!(mgr.get(&id).await.is_none());
     assert!(!dir.path().join("x.bin").exists());
 }
+
+fn queued_config(limit: usize) -> EngineConfig {
+    let mut queue_limits = std::collections::HashMap::new();
+    queue_limits.insert("Main".to_string(), limit);
+    EngineConfig {
+        max_concurrent: 3,
+        default_connections: 8,
+        queue_limits,
+    }
+}
+
+#[tokio::test]
+async fn downloads_with_a_configured_queue_limit() {
+    let data = payload(128 * 1024);
+    let addr = spawn_server(data.clone(), true).await;
+    let dir = tempfile::tempdir().unwrap();
+    let mgr = DownloadManager::new(queued_config(2)).unwrap();
+
+    let spec = DownloadSpec::new(format!("http://{addr}/queued.bin"), dir.path()).connections(2);
+    let id = mgr.add(spec).await.unwrap();
+
+    let task = wait_until_terminal(&mgr, &id, Duration::from_secs(20)).await;
+    assert_eq!(task.status, DownloadStatus::Completed, "error: {:?}", task.error);
+    assert_eq!(std::fs::read(dir.path().join("queued.bin")).unwrap(), data);
+}
+
+#[tokio::test]
+async fn a_stopped_queue_holds_its_downloads_until_started() {
+    let data = payload(32 * 1024);
+    let addr = spawn_server(data.clone(), true).await;
+    let dir = tempfile::tempdir().unwrap();
+    let mgr = DownloadManager::new(queued_config(2)).unwrap();
+
+    mgr.stop_queue("Main").await;
+    assert!(mgr.is_queue_stopped("Main").await);
+
+    let spec = DownloadSpec::new(format!("http://{addr}/held.bin"), dir.path());
+    let id = mgr.add(spec).await.unwrap();
+
+    // While the queue is stopped the transfer must not finish.
+    tokio::time::sleep(Duration::from_millis(400)).await;
+    let held = mgr.get(&id).await.unwrap();
+    assert!(
+        !held.status.is_terminal(),
+        "transfer ran while its queue was stopped: {:?}",
+        held.status
+    );
+
+    mgr.start_queue("Main").await;
+    let task = wait_until_terminal(&mgr, &id, Duration::from_secs(20)).await;
+    assert_eq!(task.status, DownloadStatus::Completed, "error: {:?}", task.error);
+    assert_eq!(std::fs::read(dir.path().join("held.bin")).unwrap(), data);
+}
+
+/// Live network check (ignored by default). HTTPS probing must work with the
+/// system root certificates — otherwise every real download fails silently.
+/// Run with: cargo test -p rdm-core -- --ignored probe_live_https
+#[tokio::test]
+#[ignore]
+async fn probe_live_https() {
+    let url = std::env::var("RDM_LIVE_URL").unwrap_or_else(|_| {
+        "https://raw.githubusercontent.com/rust-lang/rust/master/README.md".to_string()
+    });
+    println!("probing {url}");
+    let mgr = DownloadManager::new(EngineConfig::default()).unwrap();
+    let spec = DownloadSpec::new(url, ".");
+    let info = mgr.probe(&spec).await.expect("HTTPS probe should succeed");
+    println!("ok: {info:?}");
+    assert!(info.total_size.is_some() || info.accept_ranges);
+}

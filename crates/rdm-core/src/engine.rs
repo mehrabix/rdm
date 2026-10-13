@@ -24,6 +24,7 @@ use tracing::debug;
 
 use crate::error::{Error, Result};
 use crate::http::{self, RequestOptions};
+use crate::rate::RateLimiter;
 use crate::segment;
 use crate::speed::{eta_secs, SpeedMeter};
 use crate::store;
@@ -43,6 +44,8 @@ pub struct EngineConfig {
     pub max_concurrent: usize,
     /// Default connection count for specs that do not specify one.
     pub default_connections: u8,
+    /// Per-queue concurrency limits; queues not listed use `default_connections`.
+    pub queue_limits: HashMap<String, usize>,
 }
 
 impl Default for EngineConfig {
@@ -50,6 +53,7 @@ impl Default for EngineConfig {
         Self {
             max_concurrent: 3,
             default_connections: 8,
+            queue_limits: HashMap::new(),
         }
     }
 }
@@ -87,11 +91,20 @@ pub struct DownloadManager {
     controls: Arc<Mutex<HashMap<String, Control>>>,
     semaphore: Arc<Semaphore>,
     events: broadcast::Sender<EngineEvent>,
+    limiter: Arc<RateLimiter>,
+    /// One semaphore per named queue, bounding that queue's concurrency.
+    queues: Arc<RwLock<HashMap<String, Arc<Semaphore>>>>,
+    /// Queue limits, so `set_queue_limit` can compute permit deltas.
+    queue_limits: Arc<RwLock<HashMap<String, usize>>>,
+    /// Queues the user has stopped; tasks in them wait.
+    stopped_queues: Arc<RwLock<std::collections::HashSet<String>>>,
+    queue_notify: Arc<tokio::sync::Notify>,
 }
 
 impl DownloadManager {
     pub fn new(config: EngineConfig) -> Result<Arc<Self>> {
         let (events, _) = broadcast::channel(2048);
+        let queue_limits = config.queue_limits.clone();
         Ok(Arc::new(Self {
             semaphore: Arc::new(Semaphore::new(config.max_concurrent.max(1))),
             client: http::build_client()?,
@@ -99,11 +112,149 @@ impl DownloadManager {
             tasks: Arc::new(RwLock::new(BTreeMap::new())),
             controls: Arc::new(Mutex::new(HashMap::new())),
             events,
+            limiter: Arc::new(RateLimiter::new(0)),
+            queues: Arc::new(RwLock::new(HashMap::new())),
+            queue_limits: Arc::new(RwLock::new(queue_limits)),
+            stopped_queues: Arc::new(RwLock::new(std::collections::HashSet::new())),
+            queue_notify: Arc::new(tokio::sync::Notify::new()),
         }))
     }
 
     pub fn config(&self) -> &EngineConfig {
         &self.config
+    }
+
+    /// Set the application-wide speed limit in bytes/second (0 = unlimited).
+    pub fn set_speed_limit(&self, bytes_per_sec: u64) {
+        self.limiter.set_limit(bytes_per_sec);
+    }
+
+    /// Re-insert a previously persisted task, so a restart restores the queue.
+    /// Unfinished transfers come back paused; the caller resumes them.
+    pub async fn restore(&self, mut task: DownloadTask) -> Result<String> {
+        if !task.status.is_terminal() {
+            task.status = DownloadStatus::Paused;
+        }
+        task.speed = 0.0;
+        task.eta_secs = None;
+        for seg in &mut task.segments {
+            if !seg.is_done() {
+                seg.status = SegmentStatus::Pending;
+            }
+        }
+        let id = task.id.clone();
+        self.tasks.write().await.insert(id.clone(), task.clone());
+        self.controls.lock().await.insert(id.clone(), Control::new());
+        let _ = self.events.send(EngineEvent::Added { task });
+        Ok(id)
+    }
+
+    // ---- named queues ----------------------------------------------------
+
+    /// How many transfers may run in `queue` at once.
+    pub async fn queue_limit(&self, queue: &str) -> usize {
+        self.queue_limits
+            .read()
+            .await
+            .get(queue)
+            .copied()
+            .unwrap_or(self.config.default_connections.max(1) as usize)
+    }
+
+    /// Change a queue's concurrency; waiting tasks pick it up immediately.
+    pub async fn set_queue_limit(&self, queue: &str, limit: usize) {
+        let limit = limit.max(1);
+        let semaphore = {
+            let mut queues = self.queues.write().await;
+            queues
+                .entry(queue.to_string())
+                .or_insert_with(|| Arc::new(Semaphore::new(limit)))
+                .clone()
+        };
+        let mut limits = self.queue_limits.write().await;
+        let old = limits.insert(queue.to_string(), limit).unwrap_or(limit);
+        if limit > old {
+            semaphore.add_permits(limit - old);
+        } else if limit < old {
+            // Best effort: only permits that are currently free can be removed.
+            let forgotten = semaphore.forget_permits(old - limit);
+            if forgotten < old - limit {
+                limits.insert(queue.to_string(), old - forgotten);
+            }
+        }
+        drop(limits);
+        self.queue_notify.notify_waiters();
+    }
+
+    /// Names of every queue the engine knows about, sorted.
+    pub async fn queue_names(&self) -> Vec<String> {
+        let mut names: Vec<String> = self.queue_limits.read().await.keys().cloned().collect();
+        names.sort();
+        names
+    }
+
+    pub async fn is_queue_stopped(&self, queue: &str) -> bool {
+        self.stopped_queues.read().await.contains(queue)
+    }
+
+    /// Stop a queue: running tasks are paused, new ones wait.
+    pub async fn stop_queue(&self, queue: &str) {
+        self.stopped_queues
+            .write()
+            .await
+            .insert(queue.to_string());
+        let ids: Vec<String> = self
+            .tasks
+            .read()
+            .await
+            .values()
+            .filter(|task| task.spec.queue_name() == queue)
+            .map(|task| task.id.clone())
+            .collect();
+        for id in ids {
+            let _ = self.pause(&id).await;
+        }
+    }
+
+    /// Start a queue again and resume the tasks it paused.
+    pub async fn start_queue(self: &Arc<Self>, queue: &str) {
+        self.stopped_queues.write().await.remove(queue);
+        self.queue_notify.notify_waiters();
+        let ids: Vec<String> = self
+            .tasks
+            .read()
+            .await
+            .values()
+            .filter(|task| {
+                task.spec.queue_name() == queue && task.status == DownloadStatus::Paused
+            })
+            .map(|task| task.id.clone())
+            .collect();
+        for id in ids {
+            let _ = self.resume(&id).await;
+        }
+    }
+
+    /// Wait until `queue` is started, then take one of its concurrency slots.
+    async fn acquire_queue_slot(&self, queue: &str) -> tokio::sync::OwnedSemaphorePermit {
+        loop {
+            if !self.stopped_queues.read().await.contains(queue) {
+                break;
+            }
+            self.queue_notify.notified().await;
+        }
+        let semaphore = {
+            let limit = self.queue_limit(queue).await;
+            let mut queues = self.queues.write().await;
+            queues
+                .entry(queue.to_string())
+                .or_insert_with(|| Arc::new(Semaphore::new(limit)))
+                .clone()
+        };
+        semaphore
+            .acquire_owned()
+            .await
+            .expect("queue semaphore closed")
     }
 
     /// Subscribe to engine events (progress ticks, state changes).
@@ -129,6 +280,12 @@ impl DownloadManager {
     pub async fn add(self: &Arc<Self>, spec: DownloadSpec) -> Result<String> {
         let opts = RequestOptions::from_spec(&spec);
         let remote = http::probe(&self.client, &spec.url, &opts).await?;
+        tracing::info!(
+            url = %spec.url,
+            size = ?remote.total_size,
+            ranges = remote.accept_ranges,
+            "probe ok"
+        );
 
         let requested = if spec.connections == 0 {
             self.config.default_connections
@@ -265,7 +422,15 @@ impl DownloadManager {
     }
 
     async fn run(self: Arc<Self>, id: String) {
-        // Wait for a concurrency slot (this is the queue).
+        // Wait for a slot in this download's named queue, then a global slot.
+        let queue = {
+            let tasks = self.tasks.read().await;
+            match tasks.get(&id) {
+                Some(task) => task.spec.queue_name().to_string(),
+                None => return,
+            }
+        };
+        let queue_permit = self.acquire_queue_slot(&queue).await;
         let Ok(permit) = self.semaphore.clone().acquire_owned().await else {
             return;
         };
@@ -280,6 +445,7 @@ impl DownloadManager {
         self.set_status(&id, DownloadStatus::Downloading).await;
         let outcome = self.transfer(&id).await;
         drop(permit);
+        drop(queue_permit);
 
         let (status, error) = match outcome {
             Ok(()) => (DownloadStatus::Completed, None),
@@ -328,11 +494,19 @@ impl DownloadManager {
         let ticker = self.spawn_ticker(id.to_string(), counters.clone(), single.clone(), total);
 
         let result = if segments.is_empty() {
-            self.stream_single(&spec, &out_path, &opts, &single, &control)
+            self.stream_single(&spec, &out_path, &opts, &single, &self.limiter, &control)
                 .await
         } else {
-            self.stream_segments(&spec, &segments, &out_path, &counters, total, &control)
-                .await
+            self.stream_segments(
+                &spec,
+                &segments,
+                &out_path,
+                &counters,
+                total,
+                &self.limiter,
+                &control,
+            )
+            .await
         };
 
         ticker.abort();
@@ -347,6 +521,7 @@ impl DownloadManager {
         out_path: &Path,
         counters: &Arc<Vec<AtomicU64>>,
         total: Option<u64>,
+        limiter: &Arc<RateLimiter>,
         control: &Control,
     ) -> Result<()> {
         let connections = spec.connections.max(1) as usize;
@@ -357,12 +532,16 @@ impl DownloadManager {
             let spec = spec.clone();
             let out_path = out_path.to_path_buf();
             let counters = counters.clone();
+            let limiter = limiter.clone();
             let control = control.clone();
             async move {
                 if seg.is_done() {
                     return Ok(());
                 }
-                download_segment(&client, &spec, &out_path, &seg, i, &counters, total, &control).await
+                download_segment(
+                    &client, &spec, &out_path, &seg, i, &counters, total, &limiter, &control,
+                )
+                .await
             }
         });
 
@@ -379,6 +558,7 @@ impl DownloadManager {
         out_path: &Path,
         opts: &RequestOptions,
         single: &Arc<AtomicU64>,
+        limiter: &Arc<RateLimiter>,
         control: &Control,
     ) -> Result<()> {
         let resp = http::fetch_full(&self.client, &spec.url, opts).await?;
@@ -398,6 +578,7 @@ impl DownloadManager {
                 return Err(Error::Paused);
             }
             let chunk = chunk?;
+            limiter.acquire(chunk.len() as u64).await;
             file.write_all(&chunk).await?;
             written += chunk.len() as u64;
             single.store(written, Ordering::Relaxed);
@@ -530,6 +711,7 @@ async fn download_segment(
     index: usize,
     counters: &Arc<Vec<AtomicU64>>,
     _total: Option<u64>,
+    limiter: &Arc<RateLimiter>,
     control: &Control,
 ) -> Result<()> {
     let opts = RequestOptions::from_spec(spec);
@@ -564,6 +746,7 @@ async fn download_segment(
                 return Err(Error::Paused);
             }
             let chunk = chunk?;
+            limiter.acquire(chunk.len() as u64).await;
             file.write_all(&chunk).await?;
             downloaded += chunk.len() as u64;
             counters[index].store(downloaded, Ordering::Relaxed);

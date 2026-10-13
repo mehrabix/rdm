@@ -217,20 +217,67 @@ emits a `ProgressUpdate`.
 
 ## 8. The UI (Dioxus + rust-ui)
 
-- **Layout**: a top toolbar, a left category rail, a virtualized-ready transfer
-  table, and a bottom status bar — a familiar download-manager shape without
-  slavishly copying IDM's pixel look.
-- **Components**: `src/ui/*` are rust-ui-style primitives (`Button`, `Input`,
-  `Badge`, `Progress`, `Card`, `Dialog`, `Separator`). They merge classes with
-  `tw_merge!`, exactly like the rust-ui registry, and are meant to be replaced or
-  extended by components pulled from [rust-ui.com](https://rust-ui.com).
-- **State**: `src/state.rs` owns the `Arc<DownloadManager>`, mirrors its task list
-  into a `Signal<Vec<DownloadTask>>`, and exposes intentful actions
-  (`add`, `pause`, `resume`, `cancel`, `remove`). Views stay dumb.
-- **Theming**: shadcn-style OKLCH tokens defined in `tailwind.css`; dark mode by
-  default via `class="dark"` on `<html>`.
-- **Per-connection visualization**: each row renders up to 16 segment ticks so
-  you can literally see the parallel connections filling in.
+### 8.1 Shape
+
+- **Menu bar** (`src/components/menu_bar.rs`): an in-app HTML bar — File, Tasks,
+  Downloads, View, Tools, Help — with click-away dropdowns. This is *our* bar;
+  the framework's native `muda` menu is disabled in `main.rs`.
+- **Toolbar**: New / Resume / Pause / Remove, a search field, and the theme toggle.
+- **Category rail**: transfer buckets with live counts.
+- **Transfer table**: file, size, progress (with per-connection ticks), speed,
+  status badge, actions. Rows select on click, open on double-click, and expose a
+  right-click context menu.
+- **Status bar**: active/queued counts and aggregate speed.
+
+### 8.2 Settings
+
+`src/settings.rs` owns every preference (theme, language, folder, connections,
+concurrency, speed limit) and persists it to `~/.config/rdm/config.toml`. It is
+provided through Dioxus context as `SettingsCtx`; writes are saved immediately.
+The engine sizes itself from these at startup (`state::engine`).
+
+### 8.3 Theming
+
+`tailwind.css` defines the shadcn-style OKLCH tokens twice: light in `@theme`,
+dark under `.dark`. The chosen theme (Light / Dark / System) is applied by
+toggling `dark` on `<html>` via `document::eval`; **System** installs a
+`matchMedia` listener so it follows the OS live. The choice is remembered.
+
+### 8.4 Language
+
+`src/i18n.rs` + `locales/<code>.json`. The catalog is embedded (`include_str!`)
+and looked up by key; components use the `Tr { k: "…" }` node or `use_t()` (a
+`t(..)` call inside an rsx string does not parse). `LANGUAGES` lists ~34 locales
+(IDM's set); only English is translated today and anything else falls back to
+English without panicking. `is_rtl()` sets `dir="rtl"` on the root for
+Arabic/Farsi/Hebrew. Switching language re-renders live.
+
+### 8.5 Components & state
+
+`src/ui/*` are rust-ui-style primitives (Button, Input, Badge, Progress, Card,
+Dialog, Separator) that merge classes with `tw_merge!`. `src/state.rs` owns the
+`Arc<DownloadManager>`, mirrors its tasks into a `Signal<Vec<DownloadTask>>`, and
+exposes intentful actions; views stay dumb.
+
+### 8.6 IDM UI audit
+
+| IDM UI element | RDM |
+|---|---|
+| Menu bar | ✅ in-app (File / Tasks / Downloads / View / Tools / Help) |
+| Toolbar of icon actions | ✅ |
+| Left tree: categories | ✅ (queues later) |
+| Transfer list | ✅ (sorting / column choice later) |
+| Right-click context menu | ✅ |
+| Status bar | ✅ |
+| Options (tabbed) | ✅ General / Downloads / Connection live; rest stubbed |
+| Language selector (35+) | ✅ framework + English |
+| Dark theme | ✅ Dark / Light / System |
+| Tray menu | ✅ |
+| Toolbar skins / customisation | ⬜ Phase 5 |
+| Scheduler / Site Grabber / Categories dialogs | ⬜ Phases 2 / 4 |
+| Speed-limiter UI, Download-complete dialog | ⬜ Phase 1 |
+| Notifications + completion sound | ⬜ Phase 5 |
+| Drag-and-drop / floating drop box | ⬜ Phases 2 / 5 |
 
 ## 9. Feature parity matrix (vs. IDM)
 
@@ -254,11 +301,11 @@ aim at real parity rather than a guess at what IDM does.
 | Reconnect / auto-recover stalled connections | 🟡 |
 | Dynamic segmentation (live re-split of the largest chunk) | 🟡 algorithm done, wiring Phase 1 |
 | Download queue with bounded concurrency | ✅ |
-| Named queues + per-queue concurrency | ⬜ Phase 2 |
-| Built-in scheduler (start/stop/queue at a time) | ⬜ Phase 2 |
+| Named queues + per-queue concurrency | ✅ |
+| Built-in scheduler (daily window ✅; per-queue windows ⬜) | 🟡 |
 | Disconnect / shut down when finished | ⬜ Phase 5 |
 | Periodic synchronisation of files | ⬜ Phase 4 |
-| Speed limiter (global + per-download) | ⬜ Phase 1 |
+| Speed limiter (global ✅; per-download ⬜ Phase 6) | 🟡 |
 | Progressive download quotas (MB per hour) | ⬜ Phase 6 |
 | Mirrors / failover across alternate hosts | ⬜ Phase 6 |
 | Metalink support | ⬜ Phase 6 |
@@ -280,8 +327,8 @@ aim at real parity rather than a guess at what IDM does.
 | "Download with RDM" context menu | ⬜ Phase 3 |
 | Advanced integration: catch downloads from any app | ⬜ Phase 3 |
 | "Download All" — every link on the page | ⬜ Phase 3 |
-| Clipboard URL monitor ("catch" copied links) | ⬜ Phase 2 |
-| Batch download from a `.txt` list | ⬜ Phase 2 |
+| Clipboard import (manual menu item) ✅; automatic monitor ⬜ Phase 5 | 🟡 |
+| Batch import (paste a list, or a `.txt` path) | ✅ |
 | Drag & drop links in / downloaded files out | ⬜ Phase 2 |
 | Site spider & grabber (filters, subsets, offline browsing) | ⬜ Phase 4 |
 | Scheduled / periodic grabber projects | ⬜ Phase 4 |
@@ -292,8 +339,8 @@ aim at real parity rather than a guess at what IDM does.
 
 | Capability | Status |
 |---|---|
-| Download categories (auto-organise into folders) | 🟡 categories ✅, folder rules Phase 2 |
-| Duplicate detection | ⬜ Phase 2 |
+| Download categories (auto-organise into folders) | ✅ |
+| Duplicate detection | ✅ |
 | Open file / reveal in folder | ✅ |
 | Checksum verification (MD5 / SHA-1 / SHA-256) | ⬜ Phase 5 |
 | Automatic antivirus scan on completion | ⬜ Phase 5 |
@@ -307,16 +354,20 @@ aim at real parity rather than a guess at what IDM does.
 | Search / filter transfers | ✅ |
 | Per-connection segment visualisation | ✅ |
 | Live speed + ETA | ✅ |
+| In-app menu bar (File / Tasks / Downloads / View / Tools / Help) | ✅ |
+| Options dialog (General / Downloads / Connection live) | ✅ |
+| Row right-click context menu | ✅ |
 | System tray icon (pause all / resume all / quit) | ✅ |
-| Dark theme | ✅ |
-| Throughput graph | ⬜ Phase 1 |
-| Per-download detail panel (headers, log) | ⬜ Phase 1 |
-| Light theme / theme toggle | ⬜ Phase 5 |
+| Dark / Light / System theme (persisted) | ✅ |
+| UI language switching (framework + English; ~34 locales listed) | ✅ |
+| Throughput graph | ✅ |
+| Per-download detail panel (headers, segment map) | ✅ |
+| Queue restored on launch | ✅ |
 | Customisable interface (button order, toolbar skins) | ⬜ Phase 5 |
 | Minimise-to-tray | ⬜ Phase 5 |
 | Desktop notifications + completion sound | ⬜ Phase 5 |
 | Autostart on login | ⬜ Phase 5 |
-| Multi-language UI | ⬜ Phase 5 |
+| Additional translations beyond English | ⬜ Phase 5 |
 | Self-update ("quick update") | ⬜ Phase 6 |
 | Guided first-run setup ("install wizard") | ⬜ Phase 5 |
 | Packaging: `.deb` / AppImage / Flatpak | ⬜ Phase 5 |
@@ -333,14 +384,24 @@ DRM circumvention.
 Workspace, `rdm-core` engine (probe, plan, segmented download, resume, speed),
 Dioxus desktop shell, Tailwind + rust-ui primitives, docs, CI-ready tests.
 
-**Phase 1 — Make it a daily driver**
-Live dynamic segmentation; persist the queue and restore on launch; per-download
-detail panel (segment map, headers, logs); global + per-download speed limiter;
-settings file (`~/.config/rdm/config.toml`); pause-all/resume-all; retry policies.
+**Phase 1 — Make it a daily driver** *(mostly shipped)*
+✅ Global speed limiter (`RateLimiter`, live-updatable); ✅ queue persisted to
+`~/.local/share/rdm/queue.json` and restored (paused) on launch; ✅ per-download
+detail panel (segment map + HTTP headers); ✅ throughput graph. Remaining: live
+dynamic segmentation and a per-download speed limit.
 
-**Phase 2 — Automation**
-Scheduler (start/stop windows); named queues; batch import from clipboard and
-`.txt`; auto-categorization into folder layouts; duplicate detection.
+**Phase 1.5 — UI completeness** *(shipped)*
+In-app menu bar; Options dialog (General / Downloads / Connection live, the rest
+stubbed); Dark / Light / System theme with persistence; runtime language
+switching (catalog + picker; English translated, ~34 locales listed); row
+right-click context menu. Remaining here: throughput graph and the per-download
+detail panel.
+
+**Phase 2 — Automation** *(shipped, minus drag-and-drop)*
+✅ Batch import (paste a list, or a `.txt` path); ✅ clipboard import; ✅ category
+folder rules; ✅ duplicate detection; ✅ daily-window scheduler; ✅ named queues
+with per-queue concurrency (assign in the Add dialog, start/stop from the
+sidebar). Remaining: drag-and-drop capture.
 
 **Phase 3 — Browser integration**
 WebExtension for Firefox + Chromium and a native-messaging host (stdin/stdout
@@ -353,8 +414,8 @@ it; scoped site grabber with depth/domain filters and asset-type selection;
 post-processing (ffmpeg remux hooks).
 
 **Phase 5 — Product polish**
-Packaging: `.deb`, AppImage, Flatpak. Tray icon + minimize-to-tray, desktop
-notifications, completion sound, autostart, i18n scaffolding, multiple themes.
+Packaging: `.deb`, AppImage, Flatpak. Minimise-to-tray, desktop notifications,
+completion sound, autostart, additional translations, toolbar skins.
 
 **Phase 6 — Power features & hardening**
 Mirrors/Metalink failover, proxy + auth, bandwidth scheduling, fuzzing of the

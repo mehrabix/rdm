@@ -37,6 +37,36 @@ pub fn remove(task: &DownloadTask) -> Result<()> {
     }
 }
 
+/// Default location for the persisted queue:
+/// `$XDG_DATA_HOME/rdm/queue.json`, else `~/.local/share/rdm/queue.json`.
+pub fn default_queue_path() -> std::path::PathBuf {
+    let base = std::env::var_os("XDG_DATA_HOME")
+        .map(std::path::PathBuf::from)
+        .or_else(|| {
+            std::env::var_os("HOME").map(|home| std::path::PathBuf::from(home).join(".local/share"))
+        })
+        .unwrap_or_else(|| std::path::PathBuf::from(".local/share"));
+    base.join("rdm").join("queue.json")
+}
+
+/// Persist the whole task list so a restart can restore it.
+pub fn save_queue(tasks: &[DownloadTask], path: &Path) -> Result<()> {
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    let json = serde_json::to_string_pretty(tasks)?;
+    std::fs::write(path, json)?;
+    Ok(())
+}
+
+/// Load a previously saved queue, tolerating a missing or corrupt file.
+pub fn load_queue(path: &Path) -> Vec<DownloadTask> {
+    std::fs::read_to_string(path)
+        .ok()
+        .and_then(|text| serde_json::from_str(&text).ok())
+        .unwrap_or_default()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

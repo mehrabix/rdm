@@ -4,6 +4,22 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>RDM — Rust Download Manager</title>
+    <!--
+      Minimal reset applied before the app's stylesheet arrives, so the very
+      first frame is already the app's dark surface instead of a white page.
+      The compiled Tailwind CSS is injected into this head from Rust
+      (see `Config::with_custom_head` in src/main.rs).
+    -->
+    <style>
+      html,
+      body,
+      #main {
+        height: 100%;
+        margin: 0;
+        background: #1c1a24;
+        color: #f5f5fa;
+      }
+    </style>
   </head>
   <body>
     <div id="main"></div>

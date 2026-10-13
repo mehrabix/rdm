@@ -1,0 +1,156 @@
+name: Release
+
+# Triggered by a version tag (see docs/RELEASING.md). Builds a bundle per
+# platform, signs it when the required secrets are configured, and attaches the
+# artifacts to the GitHub Release for that tag.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  bundle:
+    name: Bundle (${{ matrix.target }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: linux-x86_64
+          - os: windows-latest
+            target: windows-x86_64
+          - os: macos-latest
+            target: macos-arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux system dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev libxdo-dev libssl-dev \
+            libayatana-appindicator3-dev librsvg2-dev build-essential
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install the Dioxus CLI
+        shell: bash
+        run: |
+          curl -sSL https://dioxus.dev/install.sh | bash
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          echo "$HOME/.dx/bin" >> "$GITHUB_PATH"
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: pnpm install --no-frozen-lockfile
+
+      # Regenerate the icon set so bundles pick up the current artwork. Requires
+      # ImageMagick, which is preinstalled on the hosted runners.
+      - name: Build icon set
+        if: runner.os == 'Linux'
+        run: bash scripts/make-icon.sh
+
+      - name: Bundle (release)
+        run: dx bundle --desktop --release
+
+      # ---- macOS: sign + notarise -------------------------------------------
+      # Runs only when the APPLE_* secrets exist. See docs/RELEASING.md.
+      - name: Import Apple signing certificate
+        if: runner.os == 'macOS' && secrets.APPLE_CERTIFICATE != ''
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          echo "$APPLE_CERTIFICATE" | base64 --decode > certificate.p12
+          security create-keychain -p actions build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p actions build.keychain
+          security import certificate.p12 -k build.keychain \
+            -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k actions build.keychain
+          rm certificate.p12
+
+      - name: Sign + notarise (macOS)
+        if: runner.os == 'macOS' && secrets.APPLE_CERTIFICATE != ''
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          SIGN_IDENTITY: ${{ secrets.APPLE_SIGN_IDENTITY }}
+        run: |
+          APP=$(find target/dx -maxdepth 6 -name '*.app' -type d | head -1)
+          if [ -n "$APP" ]; then
+            codesign --deep --force --options runtime --timestamp \
+              --sign "$SIGN_IDENTITY" "$APP"
+            ditto -c -k --keepParent "$APP" rdm-macos.zip
+            xcrun notarytool submit rdm-macos.zip \
+              --apple-id "$APPLE_ID" --password "$APPLE_PASSWORD" \
+              --team-id "$APPLE_TEAM_ID" --wait
+            xcrun stapler staple "$APP"
+          fi
+
+      # ---- Windows: Authenticode -------------------------------------------
+      - name: Sign (Windows)
+        if: runner.os == 'Windows' && secrets.WINDOWS_CERTIFICATE != ''
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          [IO.File]::WriteAllBytes("cert.pfx",
+            [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE))
+          $signtool = Get-ChildItem -Recurse "${env:ProgramFiles(x86)}\Windows Kits\10\bin" `
+            -Filter signtool.exe -ErrorAction SilentlyContinue |
+            Where-Object FullName -Match 'x64' | Select-Object -Last 1 -ExpandProperty FullName
+          Get-ChildItem -Recurse target/dx -Include *.exe,*.msi -ErrorAction SilentlyContinue |
+            ForEach-Object {
+              & $signtool sign /f cert.pfx /p $env:WINDOWS_CERTIFICATE_PASSWORD `
+                /fd sha256 /tr http://timestamp.digicert.com /td sha256 $_.FullName
+            }
+          Remove-Item cert.pfx
+
+      # ---- packaging --------------------------------------------------------
+      - name: Package (unix)
+        if: runner.os != 'Windows'
+        run: |
+          tar -czf "rdm-${{ matrix.target }}.tar.gz" -C target/dx/rdm/release .
+          if command -v shasum >/dev/null; then
+            shasum -a 256 "rdm-${{ matrix.target }}.tar.gz" > "rdm-${{ matrix.target }}.tar.gz.sha256"
+          else
+            sha256sum "rdm-${{ matrix.target }}.tar.gz" > "rdm-${{ matrix.target }}.tar.gz.sha256"
+          fi
+
+      - name: Package (windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Compress-Archive -Path target/dx/rdm/release/* -DestinationPath "rdm-${{ matrix.target }}.zip"
+          Get-FileHash "rdm-${{ matrix.target }}.zip" -Algorithm SHA256 |
+            ForEach-Object { "$($_.Hash)  rdm-${{ matrix.target }}.zip" } |
+            Out-File "rdm-${{ matrix.target }}.zip.sha256"
+
+      # ---- Linux: sign the checksums with a GPG key -------------------------
+      - name: Sign checksums (Linux)
+        if: runner.os == 'Linux' && secrets.GPG_PRIVATE_KEY != ''
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: |
+          echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+          gpg --batch --yes --pinentry-mode loopback --passphrase "$GPG_PASSPHRASE" \
+            --detach-sign --armor "rdm-${{ matrix.target }}.tar.gz.sha256"
+
+      - name: Upload to the GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: rdm-${{ matrix.target }}.*

@@ -1,6 +1,6 @@
 [package]
 name = "rdm"
-description = "RDM — a fast, resumable, multi-connection download manager for the Linux desktop."
+description = "RDM — a fast, resumable, multi-connection download manager for Linux, Windows and macOS."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -10,12 +10,14 @@ repository.workspace = true
 [dependencies]
 dioxus = { version = "0.7" }
 tw_merge = "0.1"
+toml = "0.8"
 rdm-core = { path = "crates/rdm-core" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 futures = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
 
 # `dx` selects one of these via `--no-default-features --features <platform>`.
 [features]

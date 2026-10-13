@@ -1,70 +1,44 @@
 #!/usr/bin/env bash
 #
-# Builds the RDM app icon and installs it everywhere on Linux.
+# Builds RDM's app icon from a master image and installs it everywhere on Linux:
+# the window icon (embedded by the app), the taskbar/dock, and the app grid.
 #
-# Idea: Ferris (the Rust crab) carrying your download — a white download arrow
-# resting on the crab's shell, on a rust-orange squircle. Two elements only,
-# so the mark stays readable down to 16px.
+# The master artwork lives at `assets/icon-source.png`. Replace that file with
+# new artwork (square, ideally 1024x1024) and re-run this script.
 #
-# Pieces:
-#   crab   : Ferris (rustacean.net)
-#   arrow  : Bootstrap Icons "download"
+# Usage:  bash scripts/make-icon.sh
 #
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 ASSETS="$ROOT/assets"
-SVG="$ASSETS/svg"
-TMP="$(mktemp -d)"
-trap 'rm -rf "$TMP"' EXIT
+MASTER="$ASSETS/icon-source.png"
 
-# --- 0. pieces (fetched once, then vendored) --------------------------------
-mkdir -p "$SVG"
-if [ ! -s "$SVG/ferris-happy.svg" ]; then
-  curl -sSL -o "$SVG/ferris-happy.svg" \
-    "https://www.rustacean.net/assets/rustacean-flat-happy.svg"
-fi
-if [ ! -s "$SVG/download-fill.svg" ]; then
-  curl -sSL -o "$SVG/download-fill.svg" \
-    "https://raw.githubusercontent.com/twbs/icons/main/icons/download.svg"
+if [ ! -s "$MASTER" ]; then
+  echo "missing master artwork: $MASTER" >&2
+  echo "put a square PNG there (ideally 1024x1024) and re-run." >&2
+  exit 1
 fi
 
-# --- palette ----------------------------------------------------------------
-RUST_HI='#FF9A4D'
-RUST_LO='#D9541E'
-CRAB='#241A19'      # crab body (near-black, warm)
-CRAB_SHADE='#3B2A24'
-INK='#FFFFFF'
-
-# --- 1. squircle background -------------------------------------------------
-magick -size 1024x1024 gradient:"$RUST_HI"-"$RUST_LO" "$TMP/grad.png"
-magick -size 1024x1024 xc:none -fill white \
-  -draw "roundrectangle 8,8 1016,1016 236,236" "$TMP/mask.png"
-magick "$TMP/grad.png" "$TMP/mask.png" -alpha off \
-  -compose CopyOpacity -composite "$TMP/base.png"
-
-# --- 2. rasterise the pieces ------------------------------------------------
-# recolour Ferris from rust-orange to near-black so it reads on the orange bg
-sed -e "s/rgb(247,76,0)/$CRAB/g" -e "s/rgb(165,43,0)/$CRAB_SHADE/g" \
-    "$SVG/ferris-happy.svg" > "$TMP/ferris-ink.svg"
-magick -background none "$TMP/ferris-ink.svg" -resize 780x "$TMP/crab.png"
-
-sed "s/currentColor/$INK/" "$SVG/download-fill.svg" > "$TMP/arrow.svg"
-magick -background none "$TMP/arrow.svg" -resize 210x "$TMP/arrow.png"
-
-# --- 3. compose: arrow resting on the crab's shell --------------------------
-magick "$TMP/base.png" \
-  "$TMP/crab.png" -gravity center -geometry +0+60 -composite \
-  "$TMP/arrow.png" -gravity center -geometry +0+96 -composite \
+# 1. knock out the black backing that sits *behind* the rounded (white) plate —
+#    otherwise the corners render as black instead of transparent — then
+#    normalise to a square 1024x1024.
+read -r W H <<<"$(magick identify -format '%w %h' "$MASTER")"
+magick "$MASTER" -alpha set -fuzz 25% -fill none \
+  -draw "alpha 1,1 floodfill" \
+  -draw "alpha $((W - 2)),1 floodfill" \
+  -draw "alpha 1,$((H - 2)) floodfill" \
+  -draw "alpha $((W - 2)),$((H - 2)) floodfill" \
+  -background none -resize 1024x1024^ -gravity center -extent 1024x1024 \
   "$ASSETS/icon.png"
 
-# --- 4. derived sizes -------------------------------------------------------
+# 2. derived sizes used by the app itself (icon-256 in the window, icon-32 tray)
 for s in 32 64 128 256 512; do
   magick "$ASSETS/icon.png" -resize "${s}x${s}" "$ASSETS/icon-${s}.png"
 done
 magick "$ASSETS/icon.png" -define icon:auto-resize=256,128,64,48,32,16 "$ASSETS/icon.ico"
 
-# --- 5. install into the user's theme ---------------------------------------
+# 3. install into the user's icon theme so the shell picks it up
 ICON_ROOT="$HOME/.local/share/icons/hicolor"
 for s in 16 24 32 48 64 128 256 512; do
   dir="$ICON_ROOT/${s}x${s}/apps"
@@ -72,6 +46,7 @@ for s in 16 24 32 48 64 128 256 512; do
   magick "$ASSETS/icon.png" -resize "${s}x${s}" "$dir/rdm.png"
 done
 
+# 4. desktop entry (GNOME/Wayland matches the icon through this, not the toolkit)
 APP_DIR="$HOME/.local/share/applications"
 mkdir -p "$APP_DIR"
 EXEC_PATH="${RDM_EXEC:-$ROOT/target/dx/rdm/debug/linux/app/rdm}"
@@ -96,6 +71,7 @@ if command -v update-desktop-database >/dev/null; then
   update-desktop-database "$APP_DIR" >/dev/null 2>&1 || true
 fi
 
-echo "icon written to $ASSETS/icon.png (+ sizes, + icon.ico)"
-echo "installed icon theme entries under $ICON_ROOT"
-echo "installed $APP_DIR/rdm.desktop (Exec=$EXEC_PATH)"
+echo "icon built from $MASTER"
+echo "  assets/icon.png (+ sizes, + icon.ico)"
+echo "  installed under $ICON_ROOT"
+echo "  installed $APP_DIR/rdm.desktop (Exec=$EXEC_PATH)"

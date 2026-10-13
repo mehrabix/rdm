@@ -27,6 +27,10 @@ pub enum IconName {
     Image,
     File,
     Check,
+    Sun,
+    Moon,
+    Monitor,
+    ChevronDown,
 }
 
 impl IconName {
@@ -50,6 +54,10 @@ impl IconName {
             Image => "M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM8 10a2 2 0 1 0 0-4 2 2 0 0 0 0 4Zm13 8-5-5L5 21",
             File => "M6 3h8l4 4v14H6zM14 3v4h4",
             Check => "M20 6 9 17l-5-5",
+            Sun => "M12 4V2M12 22v-2M4 12H2M22 12h-2M6 6 4.5 4.5M19.5 19.5 18 18M6 18l-1.5 1.5M19.5 4.5 18 6M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z",
+            Moon => "M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z",
+            Monitor => "M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM8 21h8M12 16v5",
+            ChevronDown => "m6 9 6 6 6-6",
         }
     }
 }

@@ -4,6 +4,8 @@ use rdm_core::{Category, DownloadStatus, DownloadTask};
 use tw_merge::tw_merge;
 
 use crate::components::icons::{Icon, IconName};
+use crate::components::RowMenu;
+use crate::i18n::Tr;
 use crate::state::{file_name, Downloads};
 use crate::ui::badge::{Badge, BadgeVariant};
 use crate::ui::button::{Button, ButtonSize, ButtonVariant};
@@ -16,12 +18,12 @@ pub fn TransferTable(state: Downloads) -> Element {
     rsx! {
         main { class: "flex min-w-0 flex-1 flex-col",
             div { class: "grid grid-cols-[minmax(0,1fr)_6rem_9rem_7rem_6.5rem_5.5rem] items-center gap-3 border-b border-border bg-muted/40 px-4 py-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground",
-                span { "File" }
-                span { class: "text-right", "Size" }
-                span { "Progress" }
-                span { class: "text-right", "Speed" }
-                span { class: "text-right", "Status" }
-                span { class: "text-right", "Actions" }
+                span { Tr { k: "table.file" } }
+                span { class: "text-right", Tr { k: "table.size" } }
+                span { Tr { k: "table.progress" } }
+                span { class: "text-right", Tr { k: "table.speed" } }
+                span { class: "text-right", Tr { k: "table.status" } }
+                span { class: "text-right", Tr { k: "table.actions" } }
             }
 
             div { class: "min-h-0 flex-1 overflow-y-auto",
@@ -66,7 +68,7 @@ fn Row(state: Downloads, task: DownloadTask) -> Element {
         .map(|total| human_eta(total.saturating_sub(task.downloaded), task.speed))
         .unwrap_or_else(|| "—".to_string());
 
-    let (badge_label, badge_variant) = status_badge(status);
+    let (badge_key, badge_variant) = status_badge(status);
     let segments = task.segments.clone();
     let percent = format!("{:.0}%", progress * 100.0);
     let icon_class = tw_merge!("size-4", category_color(task.category));
@@ -79,6 +81,8 @@ fn Row(state: Downloads, task: DownloadTask) -> Element {
     let remove_id = id.clone();
     let folder_path = task.output_path();
     let open_file_path = folder_path.clone();
+    let menu_task = task.clone();
+    let menu = use_signal(|| None::<(f64, f64)>);
 
     let row_class = tw_merge!(
         "grid grid-cols-[minmax(0,1fr)_6rem_9rem_7rem_6.5rem_5.5rem] items-center gap-3 border-b border-border/60 px-4 py-2 text-sm",
@@ -93,6 +97,12 @@ fn Row(state: Downloads, task: DownloadTask) -> Element {
                 if done {
                     state.open_file(open_file_path.clone());
                 }
+            },
+            oncontextmenu: move |event| {
+                event.prevent_default();
+                let point = event.client_coordinates();
+                let mut menu = menu;
+                menu.set(Some((point.x, point.y)));
             },
 
             div { class: "flex min-w-0 items-center gap-2.5",
@@ -130,7 +140,7 @@ fn Row(state: Downloads, task: DownloadTask) -> Element {
             div { class: "text-right text-xs tabular-nums", "{speed}" }
 
             div { class: "text-right",
-                Badge { variant: badge_variant, "{badge_label}" }
+                Badge { variant: badge_variant, Tr { k: badge_key } }
             }
 
             div { class: "flex items-center justify-end gap-1",
@@ -156,6 +166,8 @@ fn Row(state: Downloads, task: DownloadTask) -> Element {
                     Icon { name: IconName::Trash }
                 }
             }
+
+            RowMenu { state, task: menu_task, pos: menu }
         }
     }
 }
@@ -167,8 +179,8 @@ fn Empty() -> Element {
             div { class: "grid size-14 place-items-center rounded-2xl bg-primary/15 text-primary",
                 Icon { name: IconName::Download, class: "size-7" }
             }
-            p { class: "text-sm font-medium text-foreground", "No downloads here yet" }
-            p { class: "text-xs text-muted-foreground", "Click “New” to paste a URL and start downloading." }
+            p { class: "text-sm font-medium text-foreground", Tr { k: "table.empty_title" } }
+            p { class: "text-xs text-muted-foreground", Tr { k: "table.empty_hint" } }
         }
     }
 }
@@ -183,13 +195,13 @@ fn segment_fill(downloaded: u64, total: u64) -> f64 {
 
 fn status_badge(status: DownloadStatus) -> (&'static str, BadgeVariant) {
     match status {
-        DownloadStatus::Queued => ("Queued", BadgeVariant::Secondary),
-        DownloadStatus::Probing => ("Probing", BadgeVariant::Outline),
-        DownloadStatus::Downloading => ("Downloading", BadgeVariant::Info),
-        DownloadStatus::Paused => ("Paused", BadgeVariant::Warning),
-        DownloadStatus::Completed => ("Done", BadgeVariant::Success),
-        DownloadStatus::Failed => ("Failed", BadgeVariant::Destructive),
-        DownloadStatus::Cancelled => ("Cancelled", BadgeVariant::Outline),
+        DownloadStatus::Queued => ("dl.queued", BadgeVariant::Secondary),
+        DownloadStatus::Probing => ("dl.probing", BadgeVariant::Outline),
+        DownloadStatus::Downloading => ("dl.downloading", BadgeVariant::Info),
+        DownloadStatus::Paused => ("dl.paused", BadgeVariant::Warning),
+        DownloadStatus::Completed => ("dl.done", BadgeVariant::Success),
+        DownloadStatus::Failed => ("dl.failed", BadgeVariant::Destructive),
+        DownloadStatus::Cancelled => ("dl.cancelled", BadgeVariant::Outline),
     }
 }
 

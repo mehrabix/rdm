@@ -1,8 +1,8 @@
 # RDM — Rust Download Manager
 
-A fast, resumable, **multi-connection** download manager for the Linux desktop,
-written in Rust. Think Internet Download Manager, but native — one binary, no
-Electron, built on a headless engine you can test without a display.
+A fast, resumable, **multi-connection** download manager for **Linux, Windows and
+macOS**, written in Rust. Think Internet Download Manager, but native — one
+binary, no Electron, built on a headless engine you can test without a display.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -40,12 +40,17 @@ feature matrix and roadmap.
 | Area | State |
 |---|---|
 | Engine: probe, segment, resume, cancel/pause, speed/ETA | ✅ |
-| UI: add / pause / resume / cancel / remove, open folder, categories, search, colour theme, app icon | ✅ |
-| Dynamic re-segmentation (live), speed limiter, all/pause-all, queue persistence, throughput graph | 🚧 Phase 1 |
-| Scheduler, named queues, batch + clipboard capture, folder rules | ⬜ Phase 2 |
+| UI: menu bar, toolbar, category rail, transfer table, right-click menu, options dialog, status bar | ✅ |
+| Settings (persisted to `~/.config/rdm/config.toml`), Dark/Light/System theme, language switching (i18n) | ✅ |
+| App icon (custom crab artwork from `assets/icon-source.png`, via `scripts/make-icon.sh`) and system tray | ✅ |
+| Global speed limiter, queue persistence + restore on launch, throughput graph, per-download detail panel | ✅ |
+| Live dynamic segmentation, per-download speed limit | 🚧 Phase 1 |
+| Batch import, clipboard import, category folders, duplicate detection, daily-window scheduler | ✅ |
+| Named queues + per-queue concurrency | ✅ |
+| Drag-and-drop capture | ⬜ Phase 2 |
 | Browser integration (extension + native host) | ⬜ Phase 3 |
 | Media grabber (HLS/DASH), site grabber | ⬜ Phase 4 |
-| Tray, notifications, packaging (deb/AppImage/Flatpak) | ⬜ Phase 5 |
+| Notifications, packaging (`.deb`/AppImage/Flatpak) | ⬜ Phase 5 |
 
 The full, exhaustive IDM feature matrix and roadmap live in the
 [masterplan §9–10](docs/MASTERPLAN.md#9-feature-parity-matrix-vs-idm).

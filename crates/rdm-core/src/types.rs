@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
+/// Name of the queue every download falls into unless it names another.
+pub const DEFAULT_QUEUE: &str = "Main";
+
 /// Lifecycle of a single transfer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -141,6 +144,9 @@ pub struct DownloadSpec {
     pub user_agent: Option<String>,
     pub referer: Option<String>,
     pub cookies: Option<String>,
+    /// Named queue this download belongs to (IDM-style).
+    #[serde(default)]
+    pub queue: String,
 }
 
 impl DownloadSpec {
@@ -154,6 +160,16 @@ impl DownloadSpec {
             user_agent: None,
             referer: None,
             cookies: None,
+            queue: DEFAULT_QUEUE.to_string(),
+        }
+    }
+
+    /// The queue name, treating an empty value as the default queue.
+    pub fn queue_name(&self) -> &str {
+        if self.queue.is_empty() {
+            DEFAULT_QUEUE
+        } else {
+            &self.queue
         }
     }
 

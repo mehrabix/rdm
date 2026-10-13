@@ -2,14 +2,60 @@ use dioxus::prelude::*;
 use tw_merge::tw_merge;
 
 use crate::components::icons::{Icon, IconName};
+use crate::i18n::Tr;
 use crate::state::{Downloads, Filter};
 
 #[component]
 pub fn Sidebar(state: Downloads) -> Element {
+    let queues = crate::settings::use_settings().get().queue_names();
+
     rsx! {
         aside { class: "flex w-56 shrink-0 flex-col gap-0.5 overflow-y-auto border-r border-border bg-card/40 p-2",
             for filter in Filter::ALL {
                 SidebarItem { state, filter }
+            }
+
+            div { class: "mt-3 flex flex-col gap-0.5",
+                span { class: "px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground",
+                    Tr { k: "sidebar.queues" }
+                }
+                for name in queues {
+                    QueueRow { key: "{name}", state, name }
+                }
+            }
+        }
+    }
+}
+
+#[component]
+fn QueueRow(state: Downloads, name: String) -> Element {
+    let mut stopped = use_signal(|| false);
+    let is_stopped = stopped();
+    let count = state
+        .tasks
+        .read()
+        .iter()
+        .filter(|task| task.spec.queue_name() == name.as_str())
+        .count();
+    let toggle_name = name.clone();
+
+    rsx! {
+        div { class: "flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-muted-foreground hover:bg-muted",
+            Icon { name: IconName::Package, class: "size-3.5 text-primary/70" }
+            span { class: "truncate", "{name}" }
+            span { class: "ml-auto text-xs tabular-nums opacity-70", "{count}" }
+            button {
+                class: "rounded px-1 text-[10px] font-medium uppercase tracking-wide text-primary hover:bg-primary/15",
+                onclick: move |_| {
+                    let now_stopped = !stopped();
+                    stopped.set(now_stopped);
+                    if now_stopped {
+                        state.stop_queue(toggle_name.clone());
+                    } else {
+                        state.start_queue(toggle_name.clone());
+                    }
+                },
+                Tr { k: if is_stopped { "queue.start" } else { "queue.stop" } }
             }
         }
     }
@@ -19,7 +65,6 @@ pub fn Sidebar(state: Downloads) -> Element {
 fn SidebarItem(state: Downloads, filter: Filter) -> Element {
     let active = *state.filter.read() == filter;
     let count = state.count(filter);
-    let label = filter.label();
 
     let class = tw_merge!(
         "flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm transition-colors",
@@ -47,7 +92,7 @@ fn SidebarItem(state: Downloads, filter: Filter) -> Element {
             class,
             onclick: move |_| state.set_filter(filter),
             Icon { name: icon_for(filter), class: icon_class }
-            span { class: "truncate", "{label}" }
+            span { class: "truncate", Tr { k: filter.label_key() } }
             span { class: count_class, "{count}" }
         }
     }
