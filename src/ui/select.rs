@@ -53,15 +53,15 @@ pub fn Select(
                 div { class: "fixed inset-0 z-40", onclick: move |_| open.set(false) }
 
                 div {
-                    class: "absolute left-0 top-full z-50 mt-1 max-h-72 w-full min-w-40 overflow-y-auto rounded-md border border-border bg-card p-1 shadow-xl",
+                    class: "absolute start-0 top-full z-50 mt-1 max-h-72 w-full min-w-40 overflow-y-auto rounded-md border border-border bg-card p-1 shadow-xl",
                     for (option_value, label) in options.iter() {
                         {
                             let option_value = option_value.clone();
                             let is_selected = option_value == value;
                             let row_class = if is_selected {
-                                "flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm bg-accent text-accent-foreground"
+                                "flex w-full items-center gap-2 rounded px-2 py-1.5 text-start text-sm bg-accent text-accent-foreground"
                             } else {
-                                "flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-accent/60"
+                                "flex w-full items-center gap-2 rounded px-2 py-1.5 text-start text-sm hover:bg-accent/60"
                             };
                             rsx! {
                                 button {

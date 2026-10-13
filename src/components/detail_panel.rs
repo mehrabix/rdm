@@ -98,7 +98,7 @@ pub fn DetailPanel(state: Downloads) -> Element {
                 span { class: "text-muted-foreground", Tr { k: "options.connection.speed_limit" } }
                 input {
                     r#type: "number",
-                    class: "h-7 w-24 rounded-md border border-input bg-transparent px-2 text-right text-xs tabular-nums",
+                    class: "h-7 w-24 rounded-md border border-input bg-transparent px-2 text-end text-xs tabular-nums",
                     value: "{limit_kbps}",
                     min: "0",
                     title: "{limit_kbps}",
@@ -126,10 +126,10 @@ pub fn DetailPanel(state: Downloads) -> Element {
                         div { class: "flex items-center gap-2 text-[11px]",
                             span { class: "w-6 tabular-nums text-muted-foreground", "#{segment.index}" }
                             Progress { value: segment_fill(segment.downloaded, segment.len()), class: "flex-1" }
-                            span { class: "w-20 text-right tabular-nums text-muted-foreground",
+                            span { class: "w-20 text-end tabular-nums text-muted-foreground",
                                 "{human_bytes(segment.downloaded)}/{human_bytes(segment.len())}"
                             }
-                            span { class: "w-16 text-right text-muted-foreground", "{status_label(segment.status)}" }
+                            span { class: "w-16 text-end text-muted-foreground", "{status_label(segment.status)}" }
                         }
                     }
                 }

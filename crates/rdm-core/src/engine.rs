@@ -7,7 +7,7 @@
 
 use std::collections::{BTreeMap, HashMap};
 use std::io::SeekFrom;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex as StdMutex};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -15,7 +15,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use futures::stream::{FuturesUnordered, StreamExt};
 use reqwest::Client;
 use tokio::fs::OpenOptions;
-use tokio::io::{AsyncSeekExt, AsyncWriteExt};
+use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 use tokio::sync::{broadcast, Semaphore};
 use tokio::sync::{Mutex, RwLock};
 use tokio_util::sync::CancellationToken;
@@ -34,6 +34,7 @@ use crate::types::{
     Segment, SegmentStatus,
 };
 use crate::util;
+use crate::ytdlp;
 
 /// How often the engine emits progress snapshots and flushes to disk.
 pub const PROGRESS_INTERVAL: Duration = Duration::from_millis(250);
@@ -398,6 +399,19 @@ impl DownloadManager {
             "probe ok"
         );
 
+        // A web page is not a file: handing it to the file downloader would save
+        // the HTML/PHP. Re-route to yt-dlp, or fail with a clear message.
+        let is_html = remote
+            .content_type
+            .as_deref()
+            .map(|ct| ct.starts_with("text/html") || ct.contains("xhtml"))
+            .unwrap_or(false);
+        if is_html && !ytdlp::is_available() {
+            return Err(Error::invalid(
+                "that URL is a web page, not a media file — install yt-dlp to download the video",
+            ));
+        }
+
         let requested = if spec.connections == 0 {
             self.config.default_connections
         } else {
@@ -434,6 +448,9 @@ impl DownloadManager {
 
         let mut tasks = self.tasks.write().await;
         if let Some(task) = tasks.get_mut(id) {
+            if is_html {
+                task.spec.kind = DownloadKind::Ytdlp;
+            }
             task.spec.file_name = Some(final_name);
             task.spec.output_dir = output_dir;
             task.category = category;
@@ -565,25 +582,45 @@ impl DownloadManager {
                 .unwrap_or(DownloadKind::File)
         };
 
-        let outcome = if kind == DownloadKind::Hls {
-            self.set_status(&id, DownloadStatus::Probing).await;
-            self.transfer_hls(&id).await
-        } else {
-            let needs_probe = {
-                let tasks = self.tasks.read().await;
-                tasks.get(&id).map(|task| task.remote.is_none()).unwrap_or(false)
-            };
-            if needs_probe {
-                if let Err(err) = self.probe_and_plan(&id).await {
-                    drop(permit);
-                    drop(queue_permit);
-                    self.finish(&id, DownloadStatus::Failed, Some(err.to_string()))
-                        .await;
-                    return;
+        let outcome = match kind {
+            DownloadKind::Ytdlp => {
+                self.set_status(&id, DownloadStatus::Downloading).await;
+                self.transfer_ytdlp(&id).await
+            }
+            DownloadKind::Hls => {
+                self.set_status(&id, DownloadStatus::Probing).await;
+                self.transfer_hls(&id).await
+            }
+            DownloadKind::File => {
+                let needs_probe = {
+                    let tasks = self.tasks.read().await;
+                    tasks.get(&id).map(|task| task.remote.is_none()).unwrap_or(false)
+                };
+                if needs_probe {
+                    if let Err(err) = self.probe_and_plan(&id).await {
+                        drop(permit);
+                        drop(queue_permit);
+                        self.finish(&id, DownloadStatus::Failed, Some(err.to_string()))
+                            .await;
+                        return;
+                    }
+                }
+                // A page that turned out to be HTML is re-routed to yt-dlp by
+                // `probe_and_plan` (or rejected there); follow that here.
+                let effective = {
+                    let tasks = self.tasks.read().await;
+                    tasks
+                        .get(&id)
+                        .map(|task| task.spec.kind)
+                        .unwrap_or(DownloadKind::File)
+                };
+                self.set_status(&id, DownloadStatus::Downloading).await;
+                if effective == DownloadKind::Ytdlp {
+                    self.transfer_ytdlp(&id).await
+                } else {
+                    self.transfer(&id).await
                 }
             }
-            self.set_status(&id, DownloadStatus::Downloading).await;
-            self.transfer(&id).await
         };
         drop(permit);
         drop(queue_permit);
@@ -717,6 +754,92 @@ impl DownloadManager {
         } else {
             Ok(media::parse_media(&text, &base))
         }
+    }
+
+    /// Download a video page with `yt-dlp`, which resolves the sites a manifest
+    /// parser cannot.
+    async fn transfer_ytdlp(self: &Arc<Self>, id: &str) -> Result<()> {
+        let (spec, out_path) = {
+            let tasks = self.tasks.read().await;
+            let task = tasks.get(id).ok_or_else(|| not_found(id))?;
+            (task.spec.clone(), task.output_path())
+        };
+        let control = self.control(id).await.ok_or_else(|| not_found(id))?;
+
+        let binary =
+            ytdlp::find_binary().ok_or_else(|| Error::invalid("yt-dlp is not installed"))?;
+
+        let dir = out_path
+            .parent()
+            .map(Path::to_path_buf)
+            .unwrap_or_else(|| PathBuf::from("."));
+        tokio::fs::create_dir_all(&dir).await?;
+
+        // yt-dlp picks the container; give it a stem.
+        let stem = out_path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("video")
+            .to_string();
+        let template = dir.join(format!("{stem}.%(ext)s"));
+
+        let mut command = tokio::process::Command::new(&binary);
+        command
+            .args(ytdlp::download_args(
+                &spec.url,
+                &template,
+                spec.format.as_deref(),
+            ))
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::piped())
+            .kill_on_drop(true);
+
+        let mut child = command
+            .spawn()
+            .map_err(|err| Error::internal(format!("could not run yt-dlp: {err}")))?;
+
+        let status = loop {
+            if control.cancel.is_cancelled() {
+                let _ = child.kill().await;
+                return Err(Error::Cancelled);
+            }
+            if control.paused.load(Ordering::Relaxed) {
+                let _ = child.kill().await;
+                return Err(Error::Paused);
+            }
+            match child.try_wait()? {
+                Some(status) => break status,
+                None => tokio::time::sleep(Duration::from_millis(300)).await,
+            }
+        };
+
+        if !status.success() {
+            let mut stderr = String::new();
+            if let Some(mut err) = child.stderr.take() {
+                let _ = err.read_to_string(&mut stderr).await;
+            }
+            let detail = stderr
+                .lines()
+                .rev()
+                .find(|line| !line.trim().is_empty())
+                .unwrap_or("yt-dlp failed");
+            return Err(Error::internal(format!("yt-dlp failed: {detail}")));
+        }
+
+        // Record the file yt-dlp produced (it chose the extension).
+        if let Some(name) = produced_file(&dir, &stem).await {
+            if let Ok(meta) = tokio::fs::metadata(dir.join(&name)).await {
+                let size = meta.len();
+                let mut tasks = self.tasks.write().await;
+                if let Some(task) = tasks.get_mut(id) {
+                    task.spec.file_name = Some(name);
+                    task.total = Some(size);
+                    task.downloaded = size;
+                }
+            }
+        }
+        Ok(())
     }
 
     /// Keep up to `connections` segment workers busy. When a worker frees up and
@@ -1128,6 +1251,19 @@ async fn preallocate(path: &Path, total: u64) -> Result<()> {
 
 fn not_found(id: &str) -> Error {
     Error::NotFound(id.to_string())
+}
+
+/// The file `yt-dlp` produced for a given stem (it picks the extension).
+async fn produced_file(dir: &Path, stem: &str) -> Option<String> {
+    let prefix = format!("{stem}.");
+    let mut entries = tokio::fs::read_dir(dir).await.ok()?;
+    while let Ok(Some(entry)) = entries.next_entry().await {
+        let name = entry.file_name().to_string_lossy().to_string();
+        if name.starts_with(&prefix) {
+            return Some(name);
+        }
+    }
+    None
 }
 
 fn now() -> i64 {

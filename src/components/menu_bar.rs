@@ -134,7 +134,7 @@ fn MenuButton(
             }
             if is_open {
                 div {
-                    class: "absolute left-0 top-full z-50 mt-1 min-w-56 rounded-md border border-border bg-card p-1 shadow-xl",
+                    class: "absolute start-0 top-full z-50 mt-1 min-w-56 rounded-md border border-border bg-card p-1 shadow-xl",
                     onclick: move |event| event.stop_propagation(),
                     {children}
                 }
@@ -146,9 +146,9 @@ fn MenuButton(
 #[component]
 fn Item(label: String, #[props(default)] disabled: bool, onclick: EventHandler<()>) -> Element {
     let class = if disabled {
-        "flex w-full items-center rounded px-2 py-1 text-left text-muted-foreground/50"
+        "flex w-full items-center rounded px-2 py-1 text-start text-muted-foreground/50"
     } else {
-        "flex w-full items-center rounded px-2 py-1 text-left hover:bg-accent"
+        "flex w-full items-center rounded px-2 py-1 text-start hover:bg-accent"
     };
     rsx! {
         button {

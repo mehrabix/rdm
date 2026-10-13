@@ -43,7 +43,7 @@ fn QueueRow(state: Downloads, name: String) -> Element {
         div { class: "flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-muted-foreground hover:bg-muted",
             Icon { name: IconName::Package, class: "size-3.5 text-primary/70" }
             span { class: "truncate", "{name}" }
-            span { class: "ml-auto text-xs tabular-nums opacity-70", "{count}" }
+            span { class: "ms-auto text-xs tabular-nums opacity-70", "{count}" }
             button {
                 class: "rounded px-1 text-[10px] font-medium uppercase tracking-wide text-primary hover:bg-primary/15",
                 onclick: move |_| {
@@ -79,7 +79,7 @@ fn SidebarItem(state: Downloads, filter: Filter) -> Element {
         if active { "text-primary" } else { "text-muted-foreground/70" }
     );
     let count_class = tw_merge!(
-        "ml-auto rounded-full px-1.5 text-[11px] tabular-nums",
+        "ms-auto rounded-full px-1.5 text-[11px] tabular-nums",
         if active {
             "bg-primary/20 text-primary"
         } else {

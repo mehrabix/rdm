@@ -41,7 +41,7 @@ pub fn ThroughputGraph(state: Downloads) -> Element {
                 view_box: "0 0 100 30",
                 polyline { points, fill: "none", stroke: "currentColor", stroke_width: "1.5" }
             }
-            span { class: "w-16 text-right text-xs tabular-nums text-muted-foreground", "{label}" }
+            span { class: "w-16 text-end text-xs tabular-nums text-muted-foreground", "{label}" }
         }
     }
 }

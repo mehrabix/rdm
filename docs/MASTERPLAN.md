@@ -339,8 +339,8 @@ aim at real parity rather than a guess at what IDM does.
 | Drag & drop links in / downloaded files out | ⬜ Phase 2 |
 | Site spider & grabber (filters, subsets, offline browsing) | ⬜ Phase 4 |
 | Scheduled / periodic grabber projects | ⬜ Phase 4 |
-| Media grabber: HLS assembly ✅; DASH ⬜; yt-dlp bridge ⬜ | 🟡 |
-| `yt-dlp` bridge for streaming sites | ⬜ Phase 4 |
+| Media grabber: HLS assembly ✅; yt-dlp bridge ✅; DASH ⬜ | 🟡 |
+| `yt-dlp` bridge for streaming sites | ✅ |
 
 ### Completing a download
 
@@ -418,12 +418,13 @@ messaging framing and forwards to a running RDM over a Unix socket
 download take-over (Chromium), "Download All", and the Windows named-pipe
 transport.
 
-**Phase 4 — Media & sites** *(HLS shipped)*
-HLS assembly is in: a `…​.m3u8` URL is auto-detected, the master playlist is
-followed to the best variant, and the init + media segments are concatenated into
-a `.ts` file (`rdm-core::media`). Still to do: DASH (MPD) assembly, a quality
-picker, a `yt-dlp` bridge for sites that need it, and the scoped site grabber
-(depth/domain filters, asset-type selection).
+**Phase 4 — Media & sites** *(HLS + yt-dlp shipped)*
+`rdm-core::media` assembles HLS: a `…​.m3u8` URL is auto-detected, the master
+playlist is followed to the best variant, and the init + media segments are
+concatenated into a `.ts` file. A page whose probe comes back `text/html` is
+handed to `yt-dlp` (`rdm-core::ytdlp`), which covers the long tail of sites — so
+a web page is never saved as a file. Still to do: DASH (MPD) assembly, a quality
+picker, and the scoped site grabber.
 
 **Phase 5 — Product polish**
 Packaging: `.deb`, `.rpm`, AppImage, `.dmg` and `.msi` are built by CI (see

@@ -19,6 +19,7 @@ pub mod speed;
 pub mod store;
 pub mod types;
 pub mod util;
+pub mod ytdlp;
 
 mod engine;
 

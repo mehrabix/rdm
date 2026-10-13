@@ -28,7 +28,7 @@ pub fn StatusBar(state: Downloads) -> Element {
                 "{queued} "
                 Tr { k: "status.queued" }
             }
-            div { class: "ml-auto",
+            div { class: "ms-auto",
                 ThroughputGraph { state }
             }
             span { class: "inline-flex items-center gap-1 tabular-nums",

@@ -152,6 +152,8 @@ pub enum DownloadKind {
     File,
     /// An HLS (`.m3u8`) stream, assembled from its segment list.
     Hls,
+    /// A video page resolved and downloaded by `yt-dlp`.
+    Ytdlp,
 }
 
 /// Everything needed to start a transfer.
@@ -181,6 +183,9 @@ pub struct DownloadSpec {
     /// How to fetch the URL (plain file vs. an HLS stream).
     #[serde(default)]
     pub kind: DownloadKind,
+    /// Optional `yt-dlp` format selector (e.g. `bv*+ba/b`); `None` = best.
+    #[serde(default)]
+    pub format: Option<String>,
 }
 
 impl DownloadSpec {
@@ -198,7 +203,14 @@ impl DownloadSpec {
             speed_limit: 0,
             organize: false,
             kind: DownloadKind::File,
+            format: None,
         }
+    }
+
+    /// Resolve and download this URL with `yt-dlp`.
+    pub fn ytdlp(mut self) -> Self {
+        self.kind = DownloadKind::Ytdlp;
+        self
     }
 
     /// Fetch this URL as an HLS stream and assemble the segments.

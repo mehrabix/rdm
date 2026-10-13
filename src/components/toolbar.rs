@@ -66,7 +66,7 @@ pub fn Toolbar(state: Downloads) -> Element {
                 Tr { k: "toolbar.remove" }
             }
 
-            div { class: "ml-auto flex items-center gap-2",
+            div { class: "ms-auto flex items-center gap-2",
                 label { class: "flex w-64 items-center gap-2 rounded-md border border-input bg-transparent px-2",
                     Icon { name: IconName::Search, class: "text-muted-foreground" }
                     Input {

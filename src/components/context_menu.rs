@@ -109,7 +109,7 @@ fn close(pos: Signal<Option<(f64, f64)>>) {
 fn MenuRow(label: String, onclick: EventHandler<()>) -> Element {
     rsx! {
         button {
-            class: "flex w-full items-center rounded px-2 py-1 text-left hover:bg-accent",
+            class: "flex w-full items-center rounded px-2 py-1 text-start hover:bg-accent",
             onclick: move |_| onclick.call(()),
             "{label}"
         }

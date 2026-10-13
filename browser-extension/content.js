@@ -16,6 +16,13 @@ function mediaUrl(element) {
   return element.currentSrc || element.src || (source && source.src) || "";
 }
 
+/// What to hand RDM for a given media element: the direct file when we have a
+/// real http(s) URL, otherwise the page itself (yt-dlp resolves `blob:` players).
+function targetUrl(element) {
+  const media = mediaUrl(element);
+  return /^https?:/i.test(media) ? media : location.href;
+}
+
 function request(url) {
   if (!url) return;
   api.runtime.sendMessage({ type: "rdm:add", url, referer: location.href }, (res) => {
@@ -43,7 +50,7 @@ function addBadge(element) {
     (event) => {
       event.preventDefault();
       event.stopPropagation();
-      request(mediaUrl(element));
+      request(targetUrl(element));
     },
     true,
   );

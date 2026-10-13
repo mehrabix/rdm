@@ -52,8 +52,11 @@ RDM answers.
 
 ## Scope / roadmap
 
-Direct media files (`.mp4`, `.webm`, …) download via RDM’s normal engine, and
-**HLS streams now assemble**: sending a `.m3u8` follows the master playlist to
-the best variant and concatenates the segments (RDM names the result `.ts`).
-Still to do: **DASH** (`.mpd`) assembly, a **quality picker** in the badge/popup,
-and a **`yt-dlp` bridge** for sites where the manifest alone isn’t enough.
+Direct media files (`.mp4`, `.webm`, …) download via RDM’s normal engine, **HLS
+streams assemble** (a `.m3u8` follows the master playlist to the best variant and
+concatenates the segments into a `.ts`), and a **page URL** is handed to
+**`yt-dlp`** when RDM sees it is HTML — which covers the sites where the video is
+fetched over a `blob:` URL. The popup's **This page** button sends the tab URL
+for exactly that. RDM never saves the HTML/PHP page itself.
+
+Still to do: **DASH** (`.mpd`) assembly and a **quality picker** in the badge/popup.

@@ -66,9 +66,9 @@ pub fn OptionsDialog(state: Downloads) -> Element {
                         {
                             let active = current == item;
                             let class = if active {
-                                "rounded-md bg-primary/15 px-3 py-1.5 text-left text-sm font-medium text-foreground"
+                                "rounded-md bg-primary/15 px-3 py-1.5 text-start text-sm font-medium text-foreground"
                             } else {
-                                "rounded-md px-3 py-1.5 text-left text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+                                "rounded-md px-3 py-1.5 text-start text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
                             };
                             let label = t(item.label_key());
                             rsx! {

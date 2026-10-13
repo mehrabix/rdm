@@ -57,5 +57,14 @@ document.getElementById("refresh").addEventListener("click", () => {
   loadMedia();
 });
 
+// Send the page URL itself: RDM detects the HTML and hands it to yt-dlp, so
+// players that fetch the video over a blob: URL still work.
+document.getElementById("page").addEventListener("click", () => {
+  api.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
+    if (!tab || !tab.url) return;
+    api.runtime.sendMessage({ type: "rdm:add", url: tab.url, referer: "" }, () => ping());
+  });
+});
+
 ping();
 loadMedia();

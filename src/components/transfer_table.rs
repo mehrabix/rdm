@@ -19,11 +19,11 @@ pub fn TransferTable(state: Downloads) -> Element {
         main { class: "flex min-w-0 flex-1 flex-col",
             div { class: "grid grid-cols-[minmax(0,1fr)_6rem_9rem_7rem_6.5rem_5.5rem] items-center gap-3 border-b border-border bg-muted/40 px-4 py-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground",
                 span { Tr { k: "table.file" } }
-                span { class: "text-right", Tr { k: "table.size" } }
+                span { class: "text-end", Tr { k: "table.size" } }
                 span { Tr { k: "table.progress" } }
-                span { class: "text-right", Tr { k: "table.speed" } }
-                span { class: "text-right", Tr { k: "table.status" } }
-                span { class: "text-right", Tr { k: "table.actions" } }
+                span { class: "text-end", Tr { k: "table.speed" } }
+                span { class: "text-end", Tr { k: "table.status" } }
+                span { class: "text-end", Tr { k: "table.actions" } }
             }
 
             div { class: "min-h-0 flex-1 overflow-y-auto",
@@ -113,13 +113,13 @@ fn Row(state: Downloads, task: DownloadTask) -> Element {
                 }
             }
 
-            div { class: "text-right text-xs tabular-nums text-muted-foreground", "{size}" }
+            div { class: "text-end text-xs tabular-nums text-muted-foreground", "{size}" }
 
             div { class: "flex flex-col gap-1",
                 Progress { value: progress, indeterminate }
                 div { class: "flex items-center gap-2 text-[11px] text-muted-foreground",
                     span { class: "tabular-nums", "{percent}" }
-                    span { class: "ml-auto tabular-nums", "{eta}" }
+                    span { class: "ms-auto tabular-nums", "{eta}" }
                 }
                 if !segments.is_empty() {
                     div { class: "flex gap-px",
@@ -137,9 +137,9 @@ fn Row(state: Downloads, task: DownloadTask) -> Element {
                 }
             }
 
-            div { class: "text-right text-xs tabular-nums", "{speed}" }
+            div { class: "text-end text-xs tabular-nums", "{speed}" }
 
-            div { class: "text-right",
+            div { class: "text-end",
                 Badge { variant: badge_variant, Tr { k: badge_key } }
             }
 

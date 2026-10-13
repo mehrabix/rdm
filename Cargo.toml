@@ -49,6 +49,7 @@ tokio = { version = "1.53", features = [
     "net",
     "time",
     "sync",
+    "process",
 ] }
 reqwest = { version = "0.13", default-features = false, features = [
     "rustls",
