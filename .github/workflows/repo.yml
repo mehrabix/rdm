@@ -34,12 +34,14 @@ jobs:
       - name: Download the release packages
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.event.release.tag_name || github.ref_name }}
         run: |
           mkdir -p incoming
-          gh release download "$TAG" -R "$GITHUB_REPOSITORY" \
+          # No explicit tag: gh resolves the *latest* release, which works for
+          # both the release trigger and a manual dispatch.
+          gh release download -R "$GITHUB_REPOSITORY" \
             -p '*.deb' -p '*.rpm' -D incoming --clobber || true
           ls -l incoming
+          test -n "$(ls -A incoming)" || { echo "::error::no .deb/.rpm found on the latest release"; exit 1; }
 
       - name: Import the signing key
         run: |
