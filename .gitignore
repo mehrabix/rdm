@@ -3,9 +3,6 @@
 **/*.rs.bk
 **/*.pdb
 
-# Tooling
-.commandcode/
-
 # Dioxus / Tailwind
 /assets/tailwind.css
 /dist
