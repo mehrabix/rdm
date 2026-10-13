@@ -4,14 +4,16 @@
   left: 8px;
   z-index: 2147483647;
   margin: 0;
-  padding: 2px 8px;
-  font: 600 12px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+  padding: 4px 10px;
+  font: 600 12px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+  white-space: nowrap;
   color: #fff;
-  background: rgba(37, 99, 235, 0.9);
+  background: rgba(37, 99, 235, 0.92);
   border: 0;
   border-radius: 6px;
   cursor: pointer;
-  opacity: 0.85;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+  opacity: 0.9;
   transition: opacity 0.15s ease;
 }
 

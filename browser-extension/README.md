@@ -12,7 +12,8 @@ What it does:
 - **Right-click** a link, image, video, audio or a selected URL → **Download with RDM**.
 - **Toolbar button** → a popup that reports whether RDM is reachable and lists the
   media it found on the current page, each with a **Download** button.
-- **In-page badges** — a small “⬇ RDM” button is overlaid on every `<video>`/`<audio>`.
+- **In-page badges** — a small “⬇ Download using RDM” button is overlaid on every
+  `<video>`/`<audio>`.
 
 ## 1. Install the native host
 

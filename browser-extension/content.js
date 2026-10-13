@@ -43,8 +43,8 @@ function addBadge(element) {
   const button = document.createElement("button");
   button.type = "button";
   button.className = BADGE_CLASS;
-  button.textContent = "⬇ RDM";
-  button.title = "Download with RDM";
+  button.textContent = "⬇ Download using RDM";
+  button.title = "Download using RDM";
   button.addEventListener(
     "click",
     (event) => {

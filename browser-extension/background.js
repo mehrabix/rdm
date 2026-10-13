@@ -66,7 +66,7 @@ function createMenus() {
   api.contextMenus.removeAll(() => {
     api.contextMenus.create({
       id: MENU_ID,
-      title: "Download with RDM",
+      title: "Download using RDM",
       contexts: ["link", "video", "audio", "image", "selection"],
     });
   });
