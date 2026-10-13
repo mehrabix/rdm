@@ -81,6 +81,9 @@ pub struct Settings {
     /// Watch the clipboard and auto-queue copied http(s) links. Off by default:
     /// polling `wl-paste` makes it create a transient Wayland popup each time.
     pub clipboard_monitor: bool,
+    /// Browser whose cookie store `yt-dlp` should read (e.g. `chrome`); empty = off.
+    #[serde(default)]
+    pub browser_cookies: String,
 }
 
 impl Default for Settings {
@@ -102,6 +105,7 @@ impl Default for Settings {
             queues: vec![QueueDef::default()],
             browser_integration: true,
             clipboard_monitor: false,
+            browser_cookies: String::new(),
         }
     }
 }

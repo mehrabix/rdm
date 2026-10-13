@@ -53,6 +53,8 @@ pub struct EngineConfig {
     pub dynamic_segmentation: bool,
     /// Never split a segment smaller than this many bytes.
     pub min_segment_size: u64,
+    /// Browser whose cookie store `yt-dlp` should read (e.g. `chrome`).
+    pub ytdlp_cookies_from_browser: Option<String>,
 }
 
 impl Default for EngineConfig {
@@ -63,6 +65,7 @@ impl Default for EngineConfig {
             queue_limits: HashMap::new(),
             dynamic_segmentation: true,
             min_segment_size: 1 << 20, // 1 MiB
+            ytdlp_cookies_from_browser: None,
         }
     }
 }
@@ -784,15 +787,17 @@ impl DownloadManager {
         let template = dir.join(format!("{stem}.%(ext)s"));
 
         let mut command = tokio::process::Command::new(&binary);
+        let js_runtime = ytdlp::find_js_runtime();
+        let opts = ytdlp::Options {
+            format: spec.format.as_deref(),
+            cookies: spec.cookies.as_deref(),
+            user_agent: spec.user_agent.as_deref(),
+            referer: spec.referer.as_deref(),
+            cookies_from_browser: self.config.ytdlp_cookies_from_browser.as_deref(),
+            js_runtime: js_runtime.as_deref(),
+        };
         command
-            .args(ytdlp::download_args(
-                &spec.url,
-                &template,
-                spec.format.as_deref(),
-                spec.cookies.as_deref(),
-                spec.user_agent.as_deref(),
-                spec.referer.as_deref(),
-            ))
+            .args(ytdlp::download_args(&spec.url, &template, &opts))
             .stdin(std::process::Stdio::null())
             .stdout(std::process::Stdio::null())
             .stderr(std::process::Stdio::piped())

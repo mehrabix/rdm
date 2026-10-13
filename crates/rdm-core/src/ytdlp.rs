@@ -5,19 +5,58 @@
 //! — a mature open-source tool — does, so RDM delegates those URLs to it.
 //!
 //! Sites like YouTube refuse anonymous requests ("Sign in to confirm you're not
-//! a bot"), so the caller's cookies (forwarded from the browser extension) are
-//! passed through as a `Cookie` header.
+//! a bot") and need a JS runtime for their challenges, so the caller's browser
+//! cookies and a detected `node`/`deno` are passed through.
 
 use std::path::{Path, PathBuf};
 
-/// Locate `yt-dlp` (or the older `youtube-dl`) on `PATH`.
+/// Everything RDM forwards to yt-dlp for one download.
+#[derive(Default)]
+pub struct Options<'a> {
+    pub format: Option<&'a str>,
+    pub cookies: Option<&'a str>,
+    pub user_agent: Option<&'a str>,
+    pub referer: Option<&'a str>,
+    /// Read cookies from this browser (e.g. `chrome`).
+    pub cookies_from_browser: Option<&'a str>,
+    /// JS runtime as `<name>:<path>` for YouTube's challenges.
+    pub js_runtime: Option<&'a str>,
+}
+
+/// Directories to search, most specific first: a `pipx`/`pip --user` install in
+/// `~/.local/bin` beats a distro copy, and a GUI app's `PATH` may omit it.
+fn search_dirs() -> Vec<PathBuf> {
+    let mut dirs = Vec::new();
+    if let Some(home) = std::env::var_os("HOME") {
+        dirs.push(PathBuf::from(&home).join(".local/bin"));
+    }
+    dirs.push(PathBuf::from("/usr/local/bin"));
+    if let Some(path) = std::env::var_os("PATH") {
+        dirs.extend(std::env::split_paths(&path));
+    }
+    dirs
+}
+
+/// Locate `yt-dlp` (or the older `youtube-dl`).
 pub fn find_binary() -> Option<PathBuf> {
-    let path = std::env::var_os("PATH")?;
-    for dir in std::env::split_paths(&path) {
+    for dir in search_dirs() {
         for name in ["yt-dlp", "youtube-dl"] {
             let candidate = dir.join(name);
             if candidate.is_file() {
                 return Some(candidate);
+            }
+        }
+    }
+    None
+}
+
+/// A JS runtime yt-dlp can use for YouTube's challenges (`<name>:<path>`).
+pub fn find_js_runtime() -> Option<String> {
+    for name in ["deno", "node", "bun"] {
+        for dir in search_dirs() {
+            let candidate = dir.join(name);
+            if candidate.is_file() {
+                return Some(format!("{name}:{}", candidate.display()));
             }
         }
     }
@@ -30,35 +69,36 @@ pub fn is_available() -> bool {
 }
 
 /// Arguments that download `url` into `template` (a `-o` output template).
-pub fn download_args(
-    url: &str,
-    template: &Path,
-    format: Option<&str>,
-    cookies: Option<&str>,
-    user_agent: Option<&str>,
-    referer: Option<&str>,
-) -> Vec<String> {
+pub fn download_args(url: &str, template: &Path, opts: &Options<'_>) -> Vec<String> {
     let mut args = vec![
         "--no-playlist".to_string(),
         "--newline".to_string(),
         // Best video + best audio in one file, merging to mp4 when needed.
         "-f".to_string(),
-        format.unwrap_or("bv*+ba/b").to_string(),
+        opts.format.unwrap_or("bv*+ba/b").to_string(),
         "--merge-output-format".to_string(),
         "mp4".to_string(),
         "-o".to_string(),
         template.to_string_lossy().to_string(),
     ];
 
-    if let Some(cookies) = cookies.filter(|c| !c.trim().is_empty()) {
+    if let Some(js) = opts.js_runtime.filter(|v| !v.is_empty()) {
+        args.push("--js-runtimes".to_string());
+        args.push(js.to_string());
+    }
+    if let Some(browser) = opts.cookies_from_browser.filter(|v| !v.is_empty()) {
+        args.push("--cookies-from-browser".to_string());
+        args.push(browser.to_string());
+    }
+    if let Some(cookies) = opts.cookies.filter(|c| !c.trim().is_empty()) {
         args.push("--add-header".to_string());
         args.push(format!("Cookie: {cookies}"));
     }
-    if let Some(user_agent) = user_agent.filter(|u| !u.trim().is_empty()) {
+    if let Some(user_agent) = opts.user_agent.filter(|u| !u.trim().is_empty()) {
         args.push("--user-agent".to_string());
         args.push(user_agent.to_string());
     }
-    if let Some(referer) = referer.filter(|r| !r.trim().is_empty()) {
+    if let Some(referer) = opts.referer.filter(|r| !r.trim().is_empty()) {
         args.push("--add-header".to_string());
         args.push(format!("Referer: {referer}"));
     }
@@ -72,49 +112,55 @@ pub fn download_args(
 mod tests {
     use super::*;
 
+    fn base() -> Options<'static> {
+        Options::default()
+    }
+
     #[test]
     fn args_carry_the_url_and_template() {
-        let args = download_args(
-            "https://x/watch?v=1",
-            Path::new("/tmp/out.%(ext)s"),
-            None,
-            None,
-            None,
-            None,
-        );
+        let args = download_args("https://x/watch?v=1", Path::new("/tmp/o.%(ext)s"), &base());
         assert!(args.iter().any(|a| a == "https://x/watch?v=1"));
-        assert!(args.iter().any(|a| a == "/tmp/out.%(ext)s"));
+        assert!(args.iter().any(|a| a == "/tmp/o.%(ext)s"));
         assert!(args.windows(2).any(|w| w == ["-f", "bv*+ba/b"]));
     }
 
     #[test]
-    fn format_override_is_used() {
-        let args = download_args("u", Path::new("t"), Some("137+140"), None, None, None);
+    fn format_and_headers_are_forwarded() {
+        let opts = Options {
+            format: Some("137+140"),
+            cookies: Some("SID=abc"),
+            user_agent: Some("Mozilla/5.0"),
+            referer: Some("https://x/"),
+            ..Options::default()
+        };
+        let args = download_args("u", Path::new("t"), &opts);
         assert!(args.windows(2).any(|w| w == ["-f", "137+140"]));
-    }
-
-    #[test]
-    fn cookies_and_headers_are_forwarded() {
-        let args = download_args(
-            "u",
-            Path::new("t"),
-            None,
-            Some("SID=abc; HSID=def"),
-            Some("Mozilla/5.0"),
-            Some("https://x/"),
-        );
-        assert!(args
-            .windows(2)
-            .any(|w| w == ["--add-header", "Cookie: SID=abc; HSID=def"]));
+        assert!(args.windows(2).any(|w| w == ["--add-header", "Cookie: SID=abc"]));
         assert!(args.windows(2).any(|w| w == ["--user-agent", "Mozilla/5.0"]));
-        assert!(args
-            .windows(2)
-            .any(|w| w == ["--add-header", "Referer: https://x/"]));
+        assert!(args.windows(2).any(|w| w == ["--add-header", "Referer: https://x/"]));
     }
 
     #[test]
-    fn empty_cookies_are_omitted() {
-        let args = download_args("u", Path::new("t"), None, Some("  "), None, None);
+    fn browser_cookies_and_js_runtime_are_forwarded() {
+        let opts = Options {
+            cookies_from_browser: Some("chrome"),
+            js_runtime: Some("node:/usr/bin/node"),
+            ..Options::default()
+        };
+        let args = download_args("u", Path::new("t"), &opts);
+        assert!(args.windows(2).any(|w| w == ["--cookies-from-browser", "chrome"]));
+        assert!(args.windows(2).any(|w| w == ["--js-runtimes", "node:/usr/bin/node"]));
+    }
+
+    #[test]
+    fn empty_values_are_omitted() {
+        let opts = Options {
+            cookies: Some("  "),
+            cookies_from_browser: Some(""),
+            ..Options::default()
+        };
+        let args = download_args("u", Path::new("t"), &opts);
         assert!(!args.iter().any(|a| a.starts_with("Cookie:")));
+        assert!(!args.iter().any(|a| a == "--cookies-from-browser"));
     }
 }

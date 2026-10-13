@@ -24,6 +24,8 @@ pub fn engine() -> Arc<DownloadManager> {
                 max_concurrent: boot.max_concurrent.max(1) as usize,
                 default_connections: boot.connections.max(1),
                 queue_limits: boot.queue_limits(),
+                ytdlp_cookies_from_browser: (!boot.browser_cookies.trim().is_empty())
+                    .then(|| boot.browser_cookies.clone()),
                 ..EngineConfig::default()
             };
             DownloadManager::new(config).expect("failed to construct the RDM download engine")
