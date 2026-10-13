@@ -1,5 +1,7 @@
 const api = globalThis.browser ?? globalThis.chrome;
 
+const KIND_LABEL = { hls: "HLS", dash: "DASH", video: "Video", audio: "Audio" };
+
 function setStatus(ok, text) {
   const el = document.getElementById("status");
   el.textContent = text;
@@ -15,29 +17,57 @@ function ping() {
   });
 }
 
-function render(media) {
+/// The background merges the network registry with the page's DOM/MSE scan.
+/// Items are `{url, kind, contentType, referer}`; plain URL strings are still
+/// accepted so an older content script cannot break the popup.
+function normalize(item) {
+  if (typeof item === "string") return { url: item, kind: "video", referer: "" };
+  return item || {};
+}
+
+function render(items) {
   const list = document.getElementById("media");
   list.textContent = "";
-  if (!media.length) {
+  if (!items.length) {
     const li = document.createElement("li");
     li.className = "empty";
-    li.textContent = "No media detected on this page.";
+    li.textContent = "No video detected yet — play it, then refresh.";
     list.appendChild(li);
     return;
   }
-  for (const url of media) {
+
+  for (const raw of items) {
+    const item = normalize(raw);
+    if (!item.url) continue;
+
     const li = document.createElement("li");
+
+    const badge = document.createElement("span");
+    badge.className = `kind kind-${item.kind || "video"}`;
+    badge.textContent = KIND_LABEL[item.kind] || "File";
+    li.appendChild(badge);
+
     const name = document.createElement("span");
     name.className = "name";
-    name.textContent = url.split("/").pop().split("?")[0] || url;
-    name.title = url;
+    name.textContent = item.url.split("/").pop().split("?")[0] || item.url;
+    name.title = item.url;
+    li.appendChild(name);
+
     const button = document.createElement("button");
     button.textContent = "Download";
     button.addEventListener("click", () => {
-      api.runtime.sendMessage({ type: "rdm:add", url, referer: "" }, () => ping());
+      api.runtime.sendMessage(
+        {
+          type: "rdm:add",
+          url: item.url,
+          referer: item.referer || "",
+          contentType: item.contentType || "",
+        },
+        () => ping(),
+      );
     });
-    li.appendChild(name);
     li.appendChild(button);
+
     list.appendChild(li);
   }
 }
@@ -45,7 +75,7 @@ function render(media) {
 function loadMedia() {
   api.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
     if (!tab) return render([]);
-    api.tabs.sendMessage(tab.id, { type: "rdm:list" }, (res) => {
+    api.runtime.sendMessage({ type: "rdm:list", tabId: tab.id }, (res) => {
       if (api.runtime.lastError) return render([]);
       render((res && res.media) || []);
     });

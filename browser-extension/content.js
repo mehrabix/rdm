@@ -46,8 +46,27 @@ try {
 function record(url) {
   if (url && /^https?:/i.test(url) && !found.has(url)) {
     found.add(url);
+    // The background keeps a per-tab registry (fed by both the network monitor
+    // and this DOM/MSE scan) that the popup reads.
+    try {
+      api.runtime.sendMessage({ type: "rdm:sniff", url, referer: location.href });
+    } catch (_) {
+      /* the service worker may be starting up */
+    }
   }
 }
+
+// The page-context detector (`main-world.js`) reports what the player actually
+// fetched — including traffic that never shows up in the DOM.
+window.addEventListener(
+  "message",
+  (event) => {
+    const data = event.data;
+    if (!data || data.source !== "rdm-media") return;
+    if (data.url) record(data.url);
+  },
+  false,
+);
 
 function mediaUrl(element) {
   const source = element.querySelector && element.querySelector("source");
@@ -246,7 +265,7 @@ try {
 setInterval(scan, 2500);
 
 api.runtime.onMessage.addListener((message, _sender, respond) => {
-  if (message && message.type === "rdm:list") {
+  if (message && message.type === "rdm:dom") {
     scan();
     respond({ media: Array.from(found), badges: badgesEnabled });
     return true;

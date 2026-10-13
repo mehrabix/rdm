@@ -102,6 +102,29 @@ pub fn is_dash_content_type(content_type: &str) -> bool {
     mime(content_type) == "application/dash+xml"
 }
 
+/// Whether a response is a media stream rather than a document.
+pub fn is_media_content_type(content_type: &str) -> bool {
+    let mime = mime(content_type);
+    mime.starts_with("video/") || mime.starts_with("audio/")
+}
+
+/// How a response should be downloaded, when its type says so.
+///
+/// This is the crux of IDM-style detection: the browser reports what the player
+/// actually fetched (`application/vnd.apple.mpegurl`, `application/dash+xml`,
+/// `video/*`), and the engine routes on that instead of guessing from the URL.
+pub fn stream_kind(content_type: &str) -> Option<crate::types::DownloadKind> {
+    use crate::types::DownloadKind;
+    if is_hls_content_type(content_type) {
+        Some(DownloadKind::Hls)
+    } else if is_dash_content_type(content_type) {
+        // yt-dlp parses the manifest and assembles the representations.
+        Some(DownloadKind::Ytdlp)
+    } else {
+        None
+    }
+}
+
 /// Parse a media playlist into the init segment (if any) plus ordered segments.
 pub fn parse_media(text: &str, base: &Url) -> MediaPlaylist {
     let mut playlist = MediaPlaylist::default();
@@ -163,6 +186,28 @@ mod tests {
         assert!(!is_hls_content_type("application/dash+xml"));
         // Neither is a plain file, so the engine must not save it as one.
         assert!(!is_dash_content_type("text/html"));
+    }
+
+    #[test]
+    fn recognises_media_and_routes_manifests() {
+        use crate::types::DownloadKind;
+
+        assert!(is_media_content_type("video/mp4"));
+        assert!(is_media_content_type("audio/webm; codecs=opus"));
+        assert!(!is_media_content_type("text/html"));
+        assert!(!is_media_content_type("application/zip"));
+
+        assert_eq!(
+            stream_kind("application/vnd.apple.mpegurl"),
+            Some(DownloadKind::Hls)
+        );
+        assert_eq!(
+            stream_kind("application/dash+xml; charset=utf-8"),
+            Some(DownloadKind::Ytdlp)
+        );
+        // A plain video file is not a stream: the normal path handles it.
+        assert_eq!(stream_kind("video/mp4"), None);
+        assert_eq!(stream_kind("text/html"), None);
     }
 
     #[test]

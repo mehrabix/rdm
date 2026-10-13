@@ -1,16 +1,23 @@
 {
   "manifest_version": 3,
   "name": "RDM — Download with RDM",
-  "version": "0.2.5",
-  "description": "Send links and page media to RDM (Rust Download Manager) — right-click, or the toolbar button.",
+  "version": "0.3.0",
+  "description": "Detect video and audio on any site and hand it to RDM (Rust Download Manager) — right-click, the toolbar button, or the badge over each video.",
   "background": { "scripts": ["background.js"] },
   "action": {
     "default_popup": "popup.html",
     "default_title": "RDM",
     "default_icon": { "128": "icons/icon-128.png" }
   },
-  "permissions": ["nativeMessaging", "contextMenus", "storage", "notifications", "activeTab", "cookies", "<all_urls>"],
+  "permissions": ["nativeMessaging", "contextMenus", "storage", "notifications", "activeTab", "cookies", "webRequest", "<all_urls>"],
   "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["main-world.js"],
+      "run_at": "document_start",
+      "all_frames": true,
+      "world": "MAIN"
+    },
     {
       "matches": ["<all_urls>"],
       "js": ["content.js"],
@@ -23,7 +30,7 @@
   "browser_specific_settings": {
     "gecko": {
       "id": "rdm@mehrabix.github.io",
-      "strict_min_version": "115.0"
+      "strict_min_version": "128.0"
     }
   }
 }

@@ -510,11 +510,22 @@ impl DownloadManager {
         // A web page (or a DASH manifest) is not a file: handing it to the file
         // downloader would save the HTML/PHP/XML. Re-route to yt-dlp, which
         // assembles the streams, or fail with a clear message.
+        //
+        // The browser's observation wins when it has one: the extension reports
+        // the type of the request the *player* made, which is more reliable than
+        // probing a URL that may be signed, expiring, or extension-less.
         let content_type = remote.content_type.clone().unwrap_or_default();
+        let hinted = spec
+            .content_type
+            .as_deref()
+            .and_then(media::stream_kind);
         let is_html = content_type.starts_with("text/html") || content_type.contains("xhtml");
-        let is_dash = media::is_dash_content_type(&content_type);
+        let is_dash = hinted == Some(DownloadKind::Ytdlp)
+            || media::is_dash_content_type(&content_type);
         // An HLS playlist served without a `.m3u8` name still needs assembling.
-        let is_hls = spec.kind != DownloadKind::Hls && media::is_hls_content_type(&content_type);
+        let is_hls = spec.kind != DownloadKind::Hls
+            && (hinted == Some(DownloadKind::Hls)
+                || media::is_hls_content_type(&content_type));
         if (is_html || is_dash) && !ytdlp::is_available() {
             return Err(Error::invalid(
                 "that URL is a web page or a streaming manifest, not a media file — install yt-dlp to download the video",

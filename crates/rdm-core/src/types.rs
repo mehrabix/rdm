@@ -189,6 +189,10 @@ pub struct DownloadSpec {
     /// Preferred maximum video height for `yt-dlp` (e.g. `720`); `None` = best.
     #[serde(default)]
     pub max_height: Option<u32>,
+    /// The media type the browser observed for this URL, when it reported one.
+    /// Lets a sniffed stream be routed without guessing from the URL.
+    #[serde(default)]
+    pub content_type: Option<String>,
 }
 
 impl DownloadSpec {
@@ -208,6 +212,7 @@ impl DownloadSpec {
             kind: DownloadKind::File,
             format: None,
             max_height: None,
+            content_type: None,
         }
     }
 
@@ -220,6 +225,14 @@ impl DownloadSpec {
     /// Ask for the best video no taller than `height` (0 = best available).
     pub fn max_height(mut self, height: u32) -> Self {
         self.max_height = (height > 0).then_some(height);
+        self
+    }
+
+    /// Record the media type the browser observed (`video/mp4`,
+    /// `application/vnd.apple.mpegurl`, `application/dash+xml`, …).
+    pub fn content_type(mut self, content_type: impl Into<String>) -> Self {
+        let value = content_type.into();
+        self.content_type = (!value.trim().is_empty()).then_some(value);
         self
     }
 

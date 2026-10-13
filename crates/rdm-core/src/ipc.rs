@@ -42,6 +42,10 @@ pub enum Request {
         /// Preferred maximum video height (e.g. 720) for `yt-dlp`.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         height: Option<u32>,
+        /// The media type the browser observed for the URL, when it knows it
+        /// (`video/mp4`, `application/vnd.apple.mpegurl`, `application/dash+xml`).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        content_type: Option<String>,
     },
     /// List the video heights a URL offers (for a quality picker).
     Qualities {
@@ -130,6 +134,7 @@ async fn add(
     connections: Option<u8>,
     queue: Option<String>,
     height: Option<u32>,
+    content_type: Option<String>,
 ) -> Response {
     if !(url.starts_with("http://") || url.starts_with("https://")) {
         return Response::error(format!("unsupported URL (only http/https): {url}"));
@@ -147,6 +152,7 @@ async fn add(
     // The engine decides the per-category folder after it probes.
     spec.organize = opts.organize_by_category;
     spec.max_height = height.filter(|h| *h > 0);
+    spec.content_type = content_type;
 
     match manager.add(spec).await {
         Ok(id) => Response::ok(Some(id)),
@@ -178,10 +184,11 @@ async fn dispatch(manager: &Arc<DownloadManager>, opts: &ServeOptions, req: Requ
             connections,
             queue,
             height,
+            content_type,
         } => {
             add(
                 manager, opts, url, file_name, referer, cookies, user_agent, connections, queue,
-                height,
+                height, content_type,
             )
             .await
         }
@@ -311,6 +318,7 @@ mod tests {
                 connections: None,
                 queue: None,
                 height: None,
+                content_type: None,
             }
         );
     }
@@ -383,6 +391,7 @@ mod tests {
                 connections: None,
                 queue: None,
                 height: None,
+                content_type: None,
             },
         )
         .await

@@ -192,7 +192,7 @@ and a dismissible badge over every video on the page.
      The Chromium release `.zip` is the same tree, for store upload.
    - **Firefox** — `about:debugging#/runtime/this-firefox` → **Load Temporary
      Add-on** → the release's `rdm-extension-firefox.xpi` (or
-     `manifest.firefox.json`).
+     `manifest.firefox.json`). Firefox 128+ (page-context hooks need MV3 MAIN world).
 3. **Start RDM** — the extension talks to the running app over
    `$XDG_RUNTIME_DIR/rdm.sock` (else `~/.local/share/rdm/rdm.sock`). The popup
    shows **RDM not running** until the socket is up.
@@ -210,6 +210,29 @@ Using it:
 The badges sit at 50% opacity and go fully opaque on hover, so they stay out of
 the way. Cookies are read **only** for the site you're downloading from, and the
 socket accepts `http(s)` URLs only — it can never be asked to run a command.
+
+### How detection works
+
+RDM never guesses from a URL alone — the extension watches what the *player*
+actually fetches, the way IDM does:
+
+| Signal | Catches |
+|---|---|
+| Network monitor (`webRequest`, response headers) | Manifests and media by `Content-Type`: `application/vnd.apple.mpegurl`, `application/dash+xml`, `video/*`, `audio/*` — including signed, expiring, extension-less URLs |
+| Network monitor (request URLs) | Direct `.mp4`/`.webm`/… and `.m3u8`/`.mpd` |
+| DOM scan | `<video>`/`<audio>`/`<source>`, including nodes added after load |
+| Page-context hooks (`main-world.js`) | `fetch`/`XHR` traffic and MSE activity behind `blob:` sources, which extensions cannot see from their own world |
+
+Detections land in a per-tab list in the toolbar popup, labelled **HLS**,
+**DASH**, **Video** or **Audio**. Clicking *Download* hands RDM the URL **plus
+the media type and referer** it was fetched with, and RDM routes on that:
+`.m3u8` is assembled (then remuxed to `.mp4`), a DASH manifest goes to `yt-dlp`,
+and a plain video downloads directly. Like IDM, some players only reveal the
+stream **while playing** — start the video, then hit *Refresh* in the popup.
+
+The page URL also works as a fallback for players RDM cannot see through: it
+probes as `text/html` and is handed to `yt-dlp`, which covers the long tail of
+sites. DRM-protected streams are deliberately out of scope.
 
 ## Site grabber
 
@@ -298,7 +321,8 @@ startup so the UI can't half-switch. Pick one from the list, then restart.
 | Languages: en, es, fr, de, pt, ru, zh, fa — the picker lists exactly what translates | ✅ |
 | Distribution: apt, dnf/zypper, Homebrew, Scoop, Snap (edge), AppImage/`.dmg`/`.msi` installers | ✅ |
 | winget, AUR, Flathub, Chocolatey | ⬜ accounts/PRs pending |
-| Browser integration: link menu, page popup, video badges + cookies forwarding | ✅ |
+| Browser integration: link menu, page popup, video badges, cookies forwarding | ✅ |
+| Media detection: network monitor (by media type) + DOM scan + page-context `fetch`/XHR/MSE hooks, reported with type + referer | ✅ |
 | Browser-extension packaging: `.zip` / signed `.crx` / `.xpi` in every release | ✅ |
 | Media grabber: HLS assembly ✅ (remuxed to `.mp4` with ffmpeg) + `yt-dlp` bridge ✅ with quality picker ✅; DASH manifests routed to `yt-dlp` ✅ | ✅ |
 | Site grabber: depth-limited crawl, same-origin collection, include/exclude globs, typed results | ✅ |
