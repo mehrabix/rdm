@@ -1,121 +1,121 @@
-key	es	fr	de	pt	ru	zh
-menu.file	Archivo	Fichier	Datei	Arquivo	Файл	文件
-menu.file.new	Nueva descarga…	Nouveau téléchargement…	Neuer Download…	Novo download…	Новая загрузка…	新建下载…
-menu.file.batch	Importación por lotes…	Import par lot…	Stapelimport…	Importação em lote…	Пакетный импорт…	批量导入…
-menu.file.import_clipboard	Importar URL del portapapeles	Importer les URL du presse-papiers	URLs aus der Zwischenablage	Importar URLs da área de transferência	Импорт URL из буфера	从剪贴板导入链接
-menu.file.exit	Salir	Quitter	Beenden	Sair	Выход	退出
-menu.tasks	Tareas	Tâches	Aufgaben	Tarefas	Задачи	任务
-menu.tasks.start_queue	Iniciar cola	Démarrer la file	Warteschlange starten	Iniciar fila	Запустить очередь	开始队列
-menu.tasks.stop_queue	Detener cola	Arrêter la file	Warteschlange stoppen	Parar fila	Остановить очередь	停止队列
-menu.tasks.scheduler	Programador…	Planificateur…	Zeitplan…	Agendador…	Планировщик…	计划任务…
-menu.tasks.grabber	Capturador de sitios…	Capture de site…	Website-Grabber…	Capturador de sites…	Обход сайта…	站点抓取…
-menu.downloads	Descargas	Téléchargements	Downloads	Downloads	Загрузки	下载
-menu.downloads.resume	Reanudar	Reprendre	Fortsetzen	Retomar	Продолжить	继续
-menu.downloads.pause	Pausar	Pause	Pausieren	Pausar	Пауза	暂停
-menu.downloads.resume_all	Reanudar todo	Tout reprendre	Alle fortsetzen	Retomar tudo	Продолжить все	全部继续
-menu.downloads.pause_all	Pausar todo	Tout mettre en pause	Alle pausieren	Pausar tudo	Приостановить все	全部暂停
-menu.downloads.open	Abrir	Ouvrir	Öffnen	Abrir	Открыть	打开
-menu.downloads.open_folder	Abrir carpeta	Ouvrir le dossier	Ordner öffnen	Abrir pasta	Открыть папку	打开文件夹
-menu.downloads.copy_url	Copiar URL	Copier l'URL	URL kopieren	Copiar URL	Копировать URL	复制链接
-menu.downloads.remove	Eliminar	Supprimer	Entfernen	Remover	Удалить	移除
-menu.downloads.remove_completed	Eliminar completadas	Supprimer les terminées	Abgeschlossene entfernen	Remover concluídos	Удалить завершённые	移除已完成
-menu.downloads.properties	Propiedades	Propriétés	Eigenschaften	Propriedades	Свойства	属性
-menu.view	Ver	Affichage	Ansicht	Exibir	Вид	视图
-menu.view.sidebar	Categorías	Catégories	Kategorien	Categorias	Категории	分类
-menu.view.statusbar	Barra de estado	Barre d'état	Statusleiste	Barra de status	Строка состояния	状态栏
-menu.view.theme	Tema	Thème	Design	Tema	Тема	主题
-menu.view.language	Idioma	Langue	Sprache	Idioma	Язык	语言
-menu.tools	Herramientas	Outils	Werkzeuge	Ferramentas	Инструменты	工具
-menu.tools.options	Opciones…	Options…	Optionen…	Opções…	Настройки…	选项…
-menu.tools.speed_limiter	Límite de velocidad…	Limiteur de débit…	Geschwindigkeitslimit…	Limite de velocidade…	Ограничение скорости…	限速…
-menu.tools.updates	Buscar actualizaciones	Rechercher des mises à jour	Nach Updates suchen	Verificar atualizações	Проверить обновления	检查更新
-menu.help	Ayuda	Aide	Hilfe	Ajuda	Справка	帮助
-menu.help.about	Acerca de RDM	À propos de RDM	Über RDM	Sobre o RDM	О программе	关于 RDM
-menu.help.docs	Documentación	Documentation	Dokumentation	Documentação	Документация	文档
-theme.light	Claro	Clair	Hell	Claro	Светлая	浅色
-theme.dark	Oscuro	Sombre	Dunkel	Escuro	Тёмная	深色
-theme.system	Sistema	Système	System	Sistema	Системная	跟随系统
-toolbar.new	Nuevo	Nouveau	Neu	Novo	Создать	新建
-toolbar.resume	Reanudar	Reprendre	Fortsetzen	Retomar	Продолжить	继续
-toolbar.pause	Pausar	Pause	Pausieren	Pausar	Пауза	暂停
-toolbar.remove	Eliminar	Supprimer	Entfernen	Remover	Удалить	移除
-toolbar.options	Opciones	Options	Optionen	Opções	Настройки	选项
-toolbar.search	Buscar descargas…	Rechercher des téléchargements…	Downloads suchen…	Buscar downloads…	Поиск загрузок…	搜索下载…
-sidebar.all	Todas las descargas	Tous les téléchargements	Alle Downloads	Todos os downloads	Все загрузки	全部下载
-sidebar.active	Activas	Actifs	Aktiv	Ativos	Активные	进行中
-sidebar.queued	En cola	En attente	In Warteschlange	Na fila	В очереди	排队中
-sidebar.finished	Completadas	Terminés	Abgeschlossen	Concluídos	Завершённые	已完成
-sidebar.unfinished	Sin terminar	Inachevés	Unvollständig	Incompletos	Незавершённые	未完成
-sidebar.compressed	Comprimidos	Compressés	Komprimiert	Comprimidos	Архивы	压缩文件
-sidebar.documents	Documentos	Documents	Dokumente	Documentos	Документы	文档
-sidebar.music	Música	Musique	Musik	Música	Музыка	音乐
-sidebar.programs	Programas	Programmes	Programme	Programas	Программы	程序
-sidebar.video	Vídeo	Vidéo	Video	Vídeo	Видео	视频
-sidebar.images	Imágenes	Images	Bilder	Imagens	Изображения	图片
-sidebar.other	Otros	Autres	Sonstiges	Outros	Прочее	其他
-sidebar.queues	Colas	Files	Warteschlangen	Filas	Очереди	队列
-queue.start	Iniciar	Démarrer	Starten	Iniciar	Запустить	开始
-queue.stop	Detener	Arrêter	Stoppen	Parar	Остановить	停止
-status.active	activas	actifs	aktiv	ativos	активных	进行中
-status.queued	en cola	en attente	in Warteschlange	na fila	в очереди	排队
-status.total	Total	Total	Gesamt	Total	Всего	总计
-table.file	Archivo	Fichier	Datei	Arquivo	Файл	文件
-table.size	Tamaño	Taille	Größe	Tamanho	Размер	大小
-table.progress	Progreso	Progression	Fortschritt	Progresso	Прогресс	进度
-table.speed	Velocidad	Vitesse	Geschwindigkeit	Velocidade	Скорость	速度
-table.status	Estado	État	Status	Status	Состояние	状态
-table.actions	Acciones	Actions	Aktionen	Ações	Действия	操作
-table.empty_title	Aún no hay descargas	Pas encore de téléchargements	Noch keine Downloads	Ainda não há downloads	Загрузок пока нет	暂无下载
-table.empty_hint	Haz clic en «Nuevo» para pegar una URL.	Cliquez sur « Nouveau » pour coller une URL.	Klicke auf „Neu“, um eine URL einzufügen.	Clique em “Novo” para colar uma URL.	Нажмите «Создать», чтобы вставить ссылку.	点击“新建”粘贴链接开始下载。
-dl.queued	En cola	En attente	In Warteschlange	Na fila	В очереди	排队中
-dl.probing	Analizando	Analyse	Prüfe	Analisando	Анализ	探测中
-dl.downloading	Descargando	Téléchargement	Lädt	Baixando	Загрузка	下载中
-dl.paused	Pausada	En pause	Pausiert	Pausado	Пауза	已暂停
-dl.done	Completada	Terminé	Fertig	Concluído	Готово	已完成
-dl.failed	Fallida	Échec	Fehlgeschlagen	Falhou	Ошибка	失败
-dl.cancelled	Cancelada	Annulé	Abgebrochen	Cancelado	Отменено	已取消
-add.title	Nueva descarga	Nouveau téléchargement	Neuer Download	Novo download	Новая загрузка	新建下载
-add.subtitle	RDM analizará la URL y la dividirá en conexiones paralelas.	RDM analysera l'URL et la divisera en connexions parallèles.	RDM prüft die URL und teilt sie in parallele Verbindungen auf.	O RDM analisará a URL e a dividirá em conexões paralelas.	RDM проверит URL и разделит его на параллельные соединения.	RDM 将探测该链接并拆分为并行连接。
-add.url	URL	URL	URL	URL	URL	链接
-add.url_placeholder	https://example.com/big-file.zip	https://example.com/big-file.zip	https://example.com/big-file.zip	https://example.com/big-file.zip	https://example.com/big-file.zip	https://example.com/big-file.zip
-add.folder	Guardar en carpeta	Enregistrer dans	Dossier speichern	Salvar em pasta	Папка сохранения	保存到文件夹
-add.connections	Conexiones	Connexions	Verbindungen	Conexões	Соединения	连接数
-add.connections_hint	1–32. Más conexiones aceleran las descargas.	1–32. Plus de connexions accélèrent le téléchargement.	1–32. Mehr Verbindungen beschleunigen.	1–32. Mais conexões aceleram.	1–32. Больше соединений — быстрее.	1–32，连接越多下载越快。
-add.error_no_url	Introduce una URL.	Saisissez une URL.	Gib eine URL ein.	Informe uma URL.	Введите URL.	请输入链接。
-add.queue	Cola	File	Warteschlange	Fila	Очередь	队列
-add.cancel	Cancelar	Annuler	Abbrechen	Cancelar	Отмена	取消
-add.start	Iniciar descarga	Démarrer le téléchargement	Download starten	Iniciar download	Начать загрузку	开始下载
-batch.title	Importación por lotes	Import par lot	Stapelimport	Importação em lote	Пакетный импорт	批量导入
-batch.subtitle	Pega URL (una por línea) o la ruta a un archivo .txt.	Collez des URL (une par ligne) ou un chemin .txt.	URLs (eine pro Zeile) oder ein .txt-Pfad.	Cole URLs (uma por linha) ou um caminho .txt.	Вставьте URL (по одному в строке) или путь к .txt.	每行一个链接，或填写 .txt 文件路径。
-batch.placeholder	https://ejemplo.com/a.zip	https://exemple.fr/a.zip	https://beispiel.de/a.zip	https://exemplo.com/a.zip	https://example.com/a.zip	https://example.com/a.zip
-batch.queue	Encolar URL	Mettre en file	URLs einreihen	Enfileirar URLs	Добавить в очередь	加入队列
-batch.none	No se encontraron URL http(s).	Aucune URL http(s) trouvée.	Keine http(s)-URLs gefunden.	Nenhuma URL http(s) encontrada.	URL http(s) не найдены.	未找到 http(s) 链接。
-options.title	Opciones	Options	Optionen	Opções	Настройки	选项
-options.general	General	Général	Allgemein	Geral	Общие	常规
-options.downloads	Descargas	Téléchargements	Downloads	Downloads	Загрузки	下载
-options.connection	Conexión	Connexion	Verbindung	Conexão	Соединение	连接
-options.scheduler	Programador	Planificateur	Zeitplan	Agendador	Планировщик	计划任务
-options.categories	Categorías	Catégories	Kategorien	Categorias	Категории	分类
-options.browser	Navegador	Navigateur	Browser	Navegador	Браузер	浏览器
-options.browser.enable	Activar la integración con el navegador	Activer l'intégration au navigateur	Browser-Integration aktivieren	Ativar a integração com o navegador	Включить интеграцию с браузером	启用浏览器集成
-options.browser.hint	Permite que la extensión de RDM envíe enlaces a esta aplicación (escucha en un socket local).	Autorise l'extension RDM à envoyer des liens à cette application (écoute sur un socket local).	Erlaubt der RDM-Erweiterung, Links an diese App zu senden (lauscht auf einem lokalen Socket).	Permite que a extensão do RDM envie links para este aplicativo (escuta em um socket local).	Позволяет расширению RDM отправлять ссылки в это приложение (локальный сокет).	允许 RDM 浏览器扩展将链接发送到此应用（监听本地套接字）。
-options.sounds	Sonidos	Sons	Töne	Sons	Звуки	声音
-options.close	Cerrar	Fermer	Schließen	Fechar	Закрыть	关闭
-options.general.theme	Tema	Thème	Design	Tema	Тема	主题
-options.general.language	Idioma	Langue	Sprache	Idioma	Язык	语言
-options.general.folder	Carpeta de descargas	Dossier de téléchargement	Download-Ordner	Pasta de download	Папка загрузок	默认下载文件夹
-options.general.organize	Organizar por categorías	Organiser par catégories	Nach Kategorien sortieren	Organizar por categoria	Сортировать по категориям	按分类整理到文件夹
-options.general.start_minimized	Iniciar minimizado	Démarrer réduit	Minimiert starten	Iniciar minimizado	Запускать свёрнутым	启动时最小化
-options.general.confirm_exit	Confirmar al salir	Confirmer à la fermeture	Beim Beenden bestätigen	Confirmar ao sair	Подтверждать выход	退出前确认
-options.downloads.connections	Conexiones por descarga	Connexions par téléchargement	Verbindungen pro Download	Conexões por download	Соединений на загрузку	每个下载的连接数
-options.downloads.max_concurrent	Descargas simultáneas máximas	Téléchargements simultanés max.	Max. gleichzeitige Downloads	Downloads simultâneos máximos	Максимум одновременных	最大并行下载数
-options.downloads.launch_on_complete	Abrir el archivo al terminar	Ouvrir le fichier à la fin	Datei danach öffnen	Abrir o arquivo ao concluir	Открыть файл после загрузки	完成后打开文件
-options.connection.speed_limit	Límite de velocidad (KB/s)	Limite de débit (Ko/s)	Geschwindigkeit (KB/s)	Limite de velocidade (KB/s)	Ограничение (КБ/с)	限速 (KB/s)
-options.connection.speed_limit_hint	0 = sin límite. Se aplica al instante.	0 = illimité. Appliqué immédiatement.	0 = unbegrenzt. Wirkt sofort.	0 = ilimitado. Aplicado na hora.	0 = без ограничений.	0 表示不限速，立即生效。
-options.scheduler.enabled	Descargar solo en una franja horaria	Télécharger seulement dans une plage	Nur im Zeitfenster laden	Baixar apenas em um intervalo	Загружать только в окне	仅在时间段内下载
-options.scheduler.start	Empezar a las	Commencer à	Start um	Iniciar às	Начало в	开始时间
-options.scheduler.stop	Terminar a las	Arrêter à	Ende um	Parar às	Конец в	结束时间
-options.scheduler.hint	Fuera de la franja, las descargas se pausan y se reanudan solas.	Hors plage, les téléchargements sont mis en pause puis repris.	Außerhalb wird pausiert und automatisch fortgesetzt.	Fora do intervalo, pausa e retoma sozinho.	Вне окна загрузки приостанавливаются и возобновляются.	时间段外自动暂停，开启后自动继续。
-options.coming_soon	Disponible en una fase posterior.	Disponible dans une phase ultérieure.	Kommt in einer späteren Phase.	Disponível em uma fase posterior.	Появится на следующем этапе.	将在后续阶段推出。
-about.title	Acerca de RDM	À propos de RDM	Über RDM	Sobre o RDM	О программе RDM	关于 RDM
-about.description	Un gestor de descargas rápido, reanudable y multiconexión para Linux.	Un gestionnaire de téléchargements rapide, reprenable et multi-connexions pour Linux.	Ein schneller, fortsetzbarer Multi-Verbindungs-Download-Manager für Linux.	Um gerenciador de downloads rápido, retomável e multiconexão para Linux.	Быстрый менеджер загрузок с докачкой и несколькими соединениями для Linux.	快速、可续传、多连接的 Linux 下载管理器。
+key	es	fr	de	pt	ru	zh	fa
+menu.file	Archivo	Fichier	Datei	Arquivo	Файл	文件	فایل
+menu.file.new	Nueva descarga…	Nouveau téléchargement…	Neuer Download…	Novo download…	Новая загрузка…	新建下载…	دانلود جدید…
+menu.file.batch	Importación por lotes…	Import par lot…	Stapelimport…	Importação em lote…	Пакетный импорт…	批量导入…	ورود دستهای…
+menu.file.import_clipboard	Importar URL del portapapeles	Importer les URL du presse-papiers	URLs aus der Zwischenablage	Importar URLs da área de transferência	Импорт URL из буфера	从剪贴板导入链接	درونریزی نشانی از کلیپبورد
+menu.file.exit	Salir	Quitter	Beenden	Sair	Выход	退出	خروج
+menu.tasks	Tareas	Tâches	Aufgaben	Tarefas	Задачи	任务	کارها
+menu.tasks.start_queue	Iniciar cola	Démarrer la file	Warteschlange starten	Iniciar fila	Запустить очередь	开始队列	شروع صف
+menu.tasks.stop_queue	Detener cola	Arrêter la file	Warteschlange stoppen	Parar fila	Остановить очередь	停止队列	توقف صف
+menu.tasks.scheduler	Programador…	Planificateur…	Zeitplan…	Agendador…	Планировщик…	计划任务…	زمانبند…
+menu.tasks.grabber	Capturador de sitios…	Capture de site…	Website-Grabber…	Capturador de sites…	Обход сайта…	站点抓取…	گیرندهٔ سایت…
+menu.downloads	Descargas	Téléchargements	Downloads	Downloads	Загрузки	下载	دانلودها
+menu.downloads.resume	Reanudar	Reprendre	Fortsetzen	Retomar	Продолжить	继续	ادامه
+menu.downloads.pause	Pausar	Pause	Pausieren	Pausar	Пауза	暂停	توقف موقت
+menu.downloads.resume_all	Reanudar todo	Tout reprendre	Alle fortsetzen	Retomar tudo	Продолжить все	全部继续	ادامهٔ همه
+menu.downloads.pause_all	Pausar todo	Tout mettre en pause	Alle pausieren	Pausar tudo	Приостановить все	全部暂停	توقف موقت همه
+menu.downloads.open	Abrir	Ouvrir	Öffnen	Abrir	Открыть	打开	باز کردن
+menu.downloads.open_folder	Abrir carpeta	Ouvrir le dossier	Ordner öffnen	Abrir pasta	Открыть папку	打开文件夹	باز کردن پوشه
+menu.downloads.copy_url	Copiar URL	Copier l'URL	URL kopieren	Copiar URL	Копировать URL	复制链接	رونوشت نشانی
+menu.downloads.remove	Eliminar	Supprimer	Entfernen	Remover	Удалить	移除	حذف
+menu.downloads.remove_completed	Eliminar completadas	Supprimer les terminées	Abgeschlossene entfernen	Remover concluídos	Удалить завершённые	移除已完成	حذف تکمیلشدهها
+menu.downloads.properties	Propiedades	Propriétés	Eigenschaften	Propriedades	Свойства	属性	ویژگیها
+menu.view	Ver	Affichage	Ansicht	Exibir	Вид	视图	نمایش
+menu.view.sidebar	Categorías	Catégories	Kategorien	Categorias	Категории	分类	دستهبندیها
+menu.view.statusbar	Barra de estado	Barre d'état	Statusleiste	Barra de status	Строка состояния	状态栏	نوار وضعیت
+menu.view.theme	Tema	Thème	Design	Tema	Тема	主题	پوسته
+menu.view.language	Idioma	Langue	Sprache	Idioma	Язык	语言	زبان
+menu.tools	Herramientas	Outils	Werkzeuge	Ferramentas	Инструменты	工具	ابزارها
+menu.tools.options	Opciones…	Options…	Optionen…	Opções…	Настройки…	选项…	تنظیمات…
+menu.tools.speed_limiter	Límite de velocidad…	Limiteur de débit…	Geschwindigkeitslimit…	Limite de velocidade…	Ограничение скорости…	限速…	محدودکنندهٔ سرعت…
+menu.tools.updates	Buscar actualizaciones	Rechercher des mises à jour	Nach Updates suchen	Verificar atualizações	Проверить обновления	检查更新	بررسی بهروزرسانی
+menu.help	Ayuda	Aide	Hilfe	Ajuda	Справка	帮助	راهنما
+menu.help.about	Acerca de RDM	À propos de RDM	Über RDM	Sobre o RDM	О программе	关于 RDM	دربارهٔ RDM
+menu.help.docs	Documentación	Documentation	Dokumentation	Documentação	Документация	文档	مستندات
+theme.light	Claro	Clair	Hell	Claro	Светлая	浅色	روشن
+theme.dark	Oscuro	Sombre	Dunkel	Escuro	Тёмная	深色	تیره
+theme.system	Sistema	Système	System	Sistema	Системная	跟随系统	سیستم
+toolbar.new	Nuevo	Nouveau	Neu	Novo	Создать	新建	جدید
+toolbar.resume	Reanudar	Reprendre	Fortsetzen	Retomar	Продолжить	继续	ادامه
+toolbar.pause	Pausar	Pause	Pausieren	Pausar	Пауза	暂停	توقف
+toolbar.remove	Eliminar	Supprimer	Entfernen	Remover	Удалить	移除	حذف
+toolbar.options	Opciones	Options	Optionen	Opções	Настройки	选项	تنظیمات
+toolbar.search	Buscar descargas…	Rechercher des téléchargements…	Downloads suchen…	Buscar downloads…	Поиск загрузок…	搜索下载…	جستوجوی دانلودها…
+sidebar.all	Todas las descargas	Tous les téléchargements	Alle Downloads	Todos os downloads	Все загрузки	全部下载	همهٔ دانلودها
+sidebar.active	Activas	Actifs	Aktiv	Ativos	Активные	进行中	فعال
+sidebar.queued	En cola	En attente	In Warteschlange	Na fila	В очереди	排队中	در صف
+sidebar.finished	Completadas	Terminés	Abgeschlossen	Concluídos	Завершённые	已完成	تکمیلشده
+sidebar.unfinished	Sin terminar	Inachevés	Unvollständig	Incompletos	Незавершённые	未完成	ناتمام
+sidebar.compressed	Comprimidos	Compressés	Komprimiert	Comprimidos	Архивы	压缩文件	فشرده
+sidebar.documents	Documentos	Documents	Dokumente	Documentos	Документы	文档	اسناد
+sidebar.music	Música	Musique	Musik	Música	Музыка	音乐	موسیقی
+sidebar.programs	Programas	Programmes	Programme	Programas	Программы	程序	برنامهها
+sidebar.video	Vídeo	Vidéo	Video	Vídeo	Видео	视频	ویدیو
+sidebar.images	Imágenes	Images	Bilder	Imagens	Изображения	图片	تصاویر
+sidebar.other	Otros	Autres	Sonstiges	Outros	Прочее	其他	سایر
+sidebar.queues	Colas	Files	Warteschlangen	Filas	Очереди	队列	صفها
+queue.start	Iniciar	Démarrer	Starten	Iniciar	Запустить	开始	شروع
+queue.stop	Detener	Arrêter	Stoppen	Parar	Остановить	停止	توقف
+status.active	activas	actifs	aktiv	ativos	активных	进行中	فعال
+status.queued	en cola	en attente	in Warteschlange	na fila	в очереди	排队	در صف
+status.total	Total	Total	Gesamt	Total	Всего	总计	مجموع
+table.file	Archivo	Fichier	Datei	Arquivo	Файл	文件	فایل
+table.size	Tamaño	Taille	Größe	Tamanho	Размер	大小	اندازه
+table.progress	Progreso	Progression	Fortschritt	Progresso	Прогресс	进度	پیشرفت
+table.speed	Velocidad	Vitesse	Geschwindigkeit	Velocidade	Скорость	速度	سرعت
+table.status	Estado	État	Status	Status	Состояние	状态	وضعیت
+table.actions	Acciones	Actions	Aktionen	Ações	Действия	操作	کنشها
+table.empty_title	Aún no hay descargas	Pas encore de téléchargements	Noch keine Downloads	Ainda não há downloads	Загрузок пока нет	暂无下载	هنوز دانلودی اینجا نیست
+table.empty_hint	Haz clic en «Nuevo» para pegar una URL.	Cliquez sur « Nouveau » pour coller une URL.	Klicke auf „Neu“, um eine URL einzufügen.	Clique em “Novo” para colar uma URL.	Нажмите «Создать», чтобы вставить ссылку.	点击“新建”粘贴链接开始下载。	برای چسباندن نشانی و شروع دانلود روی «جدید» بزنید.
+dl.queued	En cola	En attente	In Warteschlange	Na fila	В очереди	排队中	در صف
+dl.probing	Analizando	Analyse	Prüfe	Analisando	Анализ	探测中	بررسی
+dl.downloading	Descargando	Téléchargement	Lädt	Baixando	Загрузка	下载中	در حال دانلود
+dl.paused	Pausada	En pause	Pausiert	Pausado	Пауза	已暂停	موقتاً متوقف
+dl.done	Completada	Terminé	Fertig	Concluído	Готово	已完成	انجام شد
+dl.failed	Fallida	Échec	Fehlgeschlagen	Falhou	Ошибка	失败	ناموفق
+dl.cancelled	Cancelada	Annulé	Abgebrochen	Cancelado	Отменено	已取消	لغو شد
+add.title	Nueva descarga	Nouveau téléchargement	Neuer Download	Novo download	Новая загрузка	新建下载	دانلود جدید
+add.subtitle	RDM analizará la URL y la dividirá en conexiones paralelas.	RDM analysera l'URL et la divisera en connexions parallèles.	RDM prüft die URL und teilt sie in parallele Verbindungen auf.	O RDM analisará a URL e a dividirá em conexões paralelas.	RDM проверит URL и разделит его на параллельные соединения.	RDM 将探测该链接并拆分为并行连接。	RDM نشانی را بررسی و به اتصالهای موازی تقسیم میکند.
+add.url	URL	URL	URL	URL	URL	链接	نشانی
+add.url_placeholder	https://example.com/big-file.zip	https://example.com/big-file.zip	https://example.com/big-file.zip	https://example.com/big-file.zip	https://example.com/big-file.zip	https://example.com/big-file.zip	https://example.com/big-file.zip
+add.folder	Guardar en carpeta	Enregistrer dans	Dossier speichern	Salvar em pasta	Папка сохранения	保存到文件夹	ذخیره در پوشه
+add.connections	Conexiones	Connexions	Verbindungen	Conexões	Соединения	连接数	اتصالها
+add.connections_hint	1–32. Más conexiones aceleran las descargas.	1–32. Plus de connexions accélèrent le téléchargement.	1–32. Mehr Verbindungen beschleunigen.	1–32. Mais conexões aceleram.	1–32. Больше соединений — быстрее.	1–32，连接越多下载越快。	۱–۳۲. اتصالهای بیشتر دانلود را سریعتر میکنند.
+add.error_no_url	Introduce una URL.	Saisissez une URL.	Gib eine URL ein.	Informe uma URL.	Введите URL.	请输入链接。	نشانیای برای دانلود وارد کنید.
+add.queue	Cola	File	Warteschlange	Fila	Очередь	队列	صف
+add.cancel	Cancelar	Annuler	Abbrechen	Cancelar	Отмена	取消	انصراف
+add.start	Iniciar descarga	Démarrer le téléchargement	Download starten	Iniciar download	Начать загрузку	开始下载	شروع دانلود
+batch.title	Importación por lotes	Import par lot	Stapelimport	Importação em lote	Пакетный импорт	批量导入	ورود دستهای
+batch.subtitle	Pega URL (una por línea) o la ruta a un archivo .txt.	Collez des URL (une par ligne) ou un chemin .txt.	URLs (eine pro Zeile) oder ein .txt-Pfad.	Cole URLs (uma por linha) ou um caminho .txt.	Вставьте URL (по одному в строке) или путь к .txt.	每行一个链接，或填写 .txt 文件路径。	نشانیها را (هر خط یکی) یا مسیر یک فایل .txt را بچسبانید.
+batch.placeholder	https://ejemplo.com/a.zip	https://exemple.fr/a.zip	https://beispiel.de/a.zip	https://exemplo.com/a.zip	https://example.com/a.zip	https://example.com/a.zip	https://example.com/a.zip
+batch.queue	Encolar URL	Mettre en file	URLs einreihen	Enfileirar URLs	Добавить в очередь	加入队列	افزودن نشانیها به صف
+batch.none	No se encontraron URL http(s).	Aucune URL http(s) trouvée.	Keine http(s)-URLs gefunden.	Nenhuma URL http(s) encontrada.	URL http(s) не найдены.	未找到 http(s) 链接。	نشانی http(s)ای یافت نشد.
+options.title	Opciones	Options	Optionen	Opções	Настройки	选项	تنظیمات
+options.general	General	Général	Allgemein	Geral	Общие	常规	عمومی
+options.downloads	Descargas	Téléchargements	Downloads	Downloads	Загрузки	下载	دانلودها
+options.connection	Conexión	Connexion	Verbindung	Conexão	Соединение	连接	اتصال
+options.scheduler	Programador	Planificateur	Zeitplan	Agendador	Планировщик	计划任务	زمانبند
+options.categories	Categorías	Catégories	Kategorien	Categorias	Категории	分类	دستهبندیها
+options.browser	Navegador	Navigateur	Browser	Navegador	Браузер	浏览器	مرورگر
+options.browser.enable	Activar la integración con el navegador	Activer l'intégration au navigateur	Browser-Integration aktivieren	Ativar a integração com o navegador	Включить интеграцию с браузером	启用浏览器集成	فعالکردن یکپارچگی با مرورگر
+options.browser.hint	Permite que la extensión de RDM envíe enlaces a esta aplicación (escucha en un socket local).	Autorise l'extension RDM à envoyer des liens à cette application (écoute sur un socket local).	Erlaubt der RDM-Erweiterung, Links an diese App zu senden (lauscht auf einem lokalen Socket).	Permite que a extensão do RDM envie links para este aplicativo (escuta em um socket local).	Позволяет расширению RDM отправлять ссылки в это приложение (локальный сокет).	允许 RDM 浏览器扩展将链接发送到此应用（监听本地套接字）。	به افزونهٔ RDM اجازه میدهد نشانیها را به این برنامه بفرستد (روی یک سوکت محلی گوش میدهد).
+options.sounds	Sonidos	Sons	Töne	Sons	Звуки	声音	صداها
+options.close	Cerrar	Fermer	Schließen	Fechar	Закрыть	关闭	بستن
+options.general.theme	Tema	Thème	Design	Tema	Тема	主题	پوسته
+options.general.language	Idioma	Langue	Sprache	Idioma	Язык	语言	زبان
+options.general.folder	Carpeta de descargas	Dossier de téléchargement	Download-Ordner	Pasta de download	Папка загрузок	默认下载文件夹	پوشهٔ پیشفرض دانلود
+options.general.organize	Organizar por categorías	Organiser par catégories	Nach Kategorien sortieren	Organizar por categoria	Сортировать по категориям	按分类整理到文件夹	سازماندهی دانلودها در پوشههای دستهبندی
+options.general.start_minimized	Iniciar minimizado	Démarrer réduit	Minimiert starten	Iniciar minimizado	Запускать свёрнутым	启动时最小化	شروع کوچکشده
+options.general.confirm_exit	Confirmar al salir	Confirmer à la fermeture	Beim Beenden bestätigen	Confirmar ao sair	Подтверждать выход	退出前确认	تأیید هنگام خروج
+options.downloads.connections	Conexiones por descarga	Connexions par téléchargement	Verbindungen pro Download	Conexões por download	Соединений на загрузку	每个下载的连接数	اتصالها بهازای هر دانلود
+options.downloads.max_concurrent	Descargas simultáneas máximas	Téléchargements simultanés max.	Max. gleichzeitige Downloads	Downloads simultâneos máximos	Максимум одновременных	最大并行下载数	بیشترین دانلود همزمان
+options.downloads.launch_on_complete	Abrir el archivo al terminar	Ouvrir le fichier à la fin	Datei danach öffnen	Abrir o arquivo ao concluir	Открыть файл после загрузки	完成后打开文件	باز کردن فایل پس از تکمیل
+options.connection.speed_limit	Límite de velocidad (KB/s)	Limite de débit (Ko/s)	Geschwindigkeit (KB/s)	Limite de velocidade (KB/s)	Ограничение (КБ/с)	限速 (KB/s)	محدودیت سرعت (KB/s)
+options.connection.speed_limit_hint	0 = sin límite. Se aplica al instante.	0 = illimité. Appliqué immédiatement.	0 = unbegrenzt. Wirkt sofort.	0 = ilimitado. Aplicado na hora.	0 = без ограничений.	0 表示不限速，立即生效。	۰ = نامحدود. بیدرنگ اعمال میشود.
+options.scheduler.enabled	Descargar solo en una franja horaria	Télécharger seulement dans une plage	Nur im Zeitfenster laden	Baixar apenas em um intervalo	Загружать только в окне	仅在时间段内下载	فقط در بازهٔ زمانی روزانه دانلود کن
+options.scheduler.start	Empezar a las	Commencer à	Start um	Iniciar às	Начало в	开始时间	شروع در
+options.scheduler.stop	Terminar a las	Arrêter à	Ende um	Parar às	Конец в	结束时间	توقف در
+options.scheduler.hint	Fuera de la franja, las descargas se pausan y se reanudan solas.	Hors plage, les téléchargements sont mis en pause puis repris.	Außerhalb wird pausiert und automatisch fortgesetzt.	Fora do intervalo, pausa e retoma sozinho.	Вне окна загрузки приостанавливаются и возобновляются.	时间段外自动暂停，开启后自动继续。	بیرون از بازه، دانلودهای در جریان موقتاً متوقف و با باز شدن دوباره بهطور خودکار ادامه مییابند.
+options.coming_soon	Disponible en una fase posterior.	Disponible dans une phase ultérieure.	Kommt in einer späteren Phase.	Disponível em uma fase posterior.	Появится на следующем этапе.	将在后续阶段推出。	در مرحلهٔ بعدی ارائه میشود.
+about.title	Acerca de RDM	À propos de RDM	Über RDM	Sobre o RDM	О программе RDM	关于 RDM	دربارهٔ RDM
+about.description	Un gestor de descargas rápido, reanudable y multiconexión para Linux.	Un gestionnaire de téléchargements rapide, reprenable et multi-connexions pour Linux.	Ein schneller, fortsetzbarer Multi-Verbindungs-Download-Manager für Linux.	Um gerenciador de downloads rápido, retomável e multiconexão para Linux.	Быстрый менеджер загрузок с докачкой и несколькими соединениями для Linux.	快速、可续传、多连接的 Linux 下载管理器。	یک مدیر دانلود سریع، قابلادامه و چنداتصالی برای لینوکس.

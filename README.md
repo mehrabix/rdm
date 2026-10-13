@@ -143,7 +143,7 @@ Most Linux download tools either do one stream well (`curl`, `wget`) or wrap
 | Settings persisted to `~/.config/rdm/config.toml`; Dark/Light/System theme | ✅ |
 | Queue persistence + restore on launch, throughput graph | ✅ |
 | Automation: batch + clipboard import, category folders, duplicate detection, daily-window scheduler | ✅ |
-| Languages: en, es, fr, de, pt, ru, zh — the picker offers only languages that actually translate | ✅ |
+| Languages: en, es, fr, de, pt, ru, zh, fa — the picker lists exactly what translates | ✅ |
 | Distribution: apt, dnf/zypper, Homebrew, Scoop, Snap (edge), AppImage/`.dmg`/`.msi` installers | ✅ |
 | winget, AUR, Flathub, Chocolatey | ⬜ accounts/PRs pending |
 | Live dynamic segmentation, per-download speed limit | ⬜ |

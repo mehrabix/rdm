@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use dioxus::prelude::*;
 
-use crate::i18n::{available_languages, use_t};
+use crate::i18n::{use_t, LANGUAGES};
 use crate::settings::{use_settings, Theme};
 use crate::state::Downloads;
 use crate::ui::button::{Button, ButtonVariant};
@@ -152,8 +152,8 @@ fn GeneralTab() -> Element {
                 crate::ui::select::Select {
                     class: "w-72",
                     value: current.language.clone(),
-                    options: available_languages()
-                        .into_iter()
+                    options: LANGUAGES
+                        .iter()
                         .map(|(code, name)| (code.to_string(), name.to_string()))
                         .collect(),
                     onchange: move |code: String| settings.update(|s| s.language = code),

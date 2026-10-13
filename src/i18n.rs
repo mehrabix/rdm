@@ -15,44 +15,18 @@ use dioxus::prelude::*;
 
 use crate::settings::{Settings, SettingsCtx};
 
-/// `(code, endonym)` — mirrors the languages IDM offers. This is the full list
-/// we may translate; only the codes that have a catalog (see [`LOCALES`]) are
-/// actually offered in the picker, so a choice always changes the UI.
+/// `(code, endonym)` for every language we ship a catalog for. [`LOCALES`] must
+/// contain all of these; the picker lists exactly this set, so every choice
+/// changes the UI. A saved code that isn't here is reset to English.
 pub const LANGUAGES: &[(&str, &str)] = &[
     ("en", "English"),
-    ("ar", "العربية"),
-    ("az", "Azərbaycan dili"),
-    ("bg", "Български"),
-    ("bs", "Bosanski"),
-    ("zh", "中文 (简体)"),
-    ("hr", "Hrvatski"),
-    ("cs", "Čeština"),
-    ("da", "Dansk"),
-    ("nl", "Nederlands"),
-    ("fa", "فارسی"),
+    ("es", "Español"),
     ("fr", "Français"),
     ("de", "Deutsch"),
-    ("el", "Ελληνικά"),
-    ("he", "עברית"),
-    ("hu", "Magyar"),
-    ("it", "Italiano"),
-    ("ja", "日本語"),
-    ("ko", "한국어"),
-    ("lt", "Lietuvių"),
-    ("mk", "Македонски"),
-    ("no", "Norsk"),
-    ("pl", "Polski"),
     ("pt", "Português"),
-    ("ro", "Română"),
     ("ru", "Русский"),
-    ("sr", "Српски"),
-    ("sk", "Slovenčina"),
-    ("sl", "Slovenščina"),
-    ("es", "Español"),
-    ("th", "ไทย"),
-    ("tr", "Türkçe"),
-    ("uk", "Українська"),
-    ("vi", "Tiếng Việt"),
+    ("zh", "中文 (简体)"),
+    ("fa", "فارسی"),
 ];
 
 /// Right-to-left scripts among the supported languages.
@@ -67,6 +41,7 @@ const LOCALES: &[(&str, &str)] = &[
     ("pt", include_str!("../locales/pt.json")),
     ("ru", include_str!("../locales/ru.json")),
     ("zh", include_str!("../locales/zh.json")),
+    ("fa", include_str!("../locales/fa.json")),
 ];
 
 const FALLBACK: &str = "en";
@@ -85,20 +60,9 @@ fn load(json: &str) -> HashMap<String, String> {
     serde_json::from_str(json).unwrap_or_default()
 }
 
-/// Whether `code` ships a catalog, and may therefore be selected.
+/// Whether `code` ships a catalog. Used to reset a stale saved language.
 pub fn is_shipped(code: &str) -> bool {
     LOCALES.iter().any(|(locale, _)| *locale == code)
-}
-
-/// The `(code, endonym)` pairs worth offering: those with a catalog, so every
-/// selectable language actually translates the UI. `LANGUAGES` keeps the full
-/// IDM list for when more translations land.
-pub fn available_languages() -> Vec<(&'static str, &'static str)> {
-    LANGUAGES
-        .iter()
-        .copied()
-        .filter(|(code, _)| is_shipped(code))
-        .collect()
 }
 
 /// Pure catalog lookup: `code`'s text for `key`, falling back to English and
@@ -205,15 +169,12 @@ mod tests {
     }
 
     #[test]
-    fn every_pickable_language_has_a_catalog() {
-        let languages = available_languages();
-        // English plus the shipped translations.
-        assert_eq!(languages.len(), LOCALES.len());
-        for (code, _) in languages {
-            assert!(
-                catalogs().contains_key(code),
-                "`{code}` is offered but has no catalog"
-            );
+    fn every_supported_language_has_a_catalog() {
+        let catalogs = catalogs();
+        assert_eq!(LANGUAGES.len(), LOCALES.len());
+        for (code, _) in LANGUAGES.iter().copied() {
+            assert!(is_shipped(code), "`{code}` is offered but has no catalog");
+            assert!(catalogs.contains_key(code));
         }
     }
 
@@ -228,10 +189,10 @@ mod tests {
 
     #[test]
     fn shipped_languages_are_the_registered_catalogs() {
-        for code in ["en", "es", "fr", "de", "pt", "ru", "zh"] {
+        for code in ["en", "es", "fr", "de", "pt", "ru", "zh", "fa"] {
             assert!(is_shipped(code), "`{code}` should ship a catalog");
         }
-        assert!(!is_shipped("fa"), "`fa` has no catalog yet");
+        assert!(!is_shipped("ar"), "`ar` has no catalog yet");
         assert!(!is_shipped("zz"));
     }
 }
