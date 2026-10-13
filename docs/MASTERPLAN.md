@@ -422,6 +422,69 @@ Mirrors/Metalink failover, proxy + auth, bandwidth scheduling, fuzzing of the
 segment planner and HTTP parsers, benchmark suite, and a `rdm-cli` headless
 front-end built on the same engine.
 
+## 10.5 Distribution & packaging status
+
+Everything code-side is in `packaging/` and the workflows; the remaining column
+is what a *human with an account* has to do. Full how-to: [PACKAGING.md](./PACKAGING.md),
+signing: [RELEASING.md](./RELEASING.md).
+
+### Live — install by name, no credentials needed
+
+| Channel | Install | Where |
+|---|---|---|
+| **apt** (Debian/Ubuntu) | `apt install rdm` | signed repo on GitHub Pages (`/apt`, Ed25519-signed `InRelease`) |
+| **dnf / yum / zypper** | `dnf install rdm` | signed `repodata` on GitHub Pages (`/rpm`) |
+| **Homebrew** (macOS) | `brew install --cask mehrabix/rdm/rdm` | tap `mehrabix/homebrew-rdm` (ships `Rdm.app`) |
+| **Scoop** (Windows) | `scoop install rdm` | bucket `mehrabix/scoop-bucket` |
+
+`repo.yml` rebuilds the apt+rpm repos from the latest release; `release.yml`
+builds and attaches the artifacts. The archive signing key is CI-managed
+(Ed25519, fingerprint `D504552F4865AABA`); its public half is committed at
+`packaging/rdm-archive-key.asc` and published at `/rdm.gpg`. To rotate:
+regenerate, `gh secret set GPG_PRIVATE_KEY`, bump the public key, re-run.
+
+### Blocked on an account/credential
+
+| Channel | Ready | Blocker |
+|---|---|---|
+| **winget** | `packaging/winget/*.yaml` | PR to `microsoft/winget-pkgs` (or `wingetcreate --submit`) |
+| **AUR** (Arch) | `packaging/arch/PKGBUILD` | SSH public key registered at aur.archlinux.org |
+| **pacman repo** | same recipe | needs an `archlinux` container job to build `.pkg.tar.zst` |
+| **Snap** | `packaging/snap/snapcraft.yaml` | Snap Store account + `SNAPCRAFT_STORE_CREDENTIALS` |
+| **Chocolatey** | `packaging/chocolatey/*` | chocolatey.org account + API key |
+| **Flathub** | `packaging/flatpak/*` (needs rework, below) | a submission PR from `new-pr` |
+| **Fedora COPR / openSUSE OBS** | spec exists | an account on either |
+| **Alpine / Nix** | `APKBUILD`, `default.nix` | a repo (or upstream review) |
+
+### Flathub submission plan (the next publishable channel)
+
+Flathub **builds from source**, so the current manifest (which downloads the
+release tarball) will be rejected. Steps:
+
+1. Rename the app id to **`io.github.mehrabix.RDM`** — Flathub expects
+   `io.github.<user>.<App>` unless you own the `com.` domain, and the id is
+   permanent. Affects: manifest, `.desktop`, icon name, metainfo.
+2. Add `io.github.mehrabix.RDM.metainfo.xml` (AppStream: name, summary,
+   description, license, `developer`, URLs, screenshots) + screenshots. Flathub
+   CI fails without it.
+3. Convert to a source build: `org.freedesktop.Sdk.Extension.rust-stable`,
+   `cargo-sources.json` from `flatpak-cargo-generator`, and build the Dioxus app
+   inside the sandbox.
+4. PR: fork `flathub/flathub`, branch **from `new-pr`**, add the directory
+   `io.github.mehrabix.RDM/`, push, open the PR. The bot then creates
+   `flathub/io.github.mehrabix.RDM` and reviewers take over.
+
+Known sandbox issues to solve before submitting: the **tray icon** will not work
+under the default Flatpak sandbox (needs the StatusNotifier portal / extra
+permissions), and `xdg-open` + clipboard access need the right `finish-args`.
+
+### Still missing at the artifact level
+
+`dx bundle` fails on the runners (its `rust-objcopy` strip step), so we ship
+release directories plus real `.deb`/`.rpm` — but **no `.AppImage`, `.dmg`,
+`.msi`**. Those are prerequisites for Flathub's `extra-data` path, homebrew-cask
+proper and the Snap store. Fixing that one step unblocks four channels.
+
 ## 11. Browser integration (design sketch)
 
 ```
