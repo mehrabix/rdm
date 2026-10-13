@@ -44,7 +44,7 @@ sudo dnf install rdm
 
 ```bash
 brew tap mehrabix/rdm
-brew install --cask rdm        # installs Rdm.app
+brew install --cask rdm        # installs RDM.app
 ```
 
 ### Windows (Scoop)
@@ -53,6 +53,15 @@ brew install --cask rdm        # installs Rdm.app
 scoop bucket add mehrabix https://github.com/mehrabix/scoop-bucket
 scoop install rdm
 ```
+
+### Linux (Snap)
+
+```bash
+sudo snap install rust-download-manager --edge
+```
+
+Published to the *edge* channel while v0.1 stabilises; the app command is
+`rust-download-manager`.
 
 ### Direct download
 
@@ -70,7 +79,7 @@ Every artifact ships a `.sha256` checksum.
 |---|---|
 | winget | manifests written, submission PR pending |
 | Arch (AUR) | `PKGBUILD` written, needs an AUR SSH key |
-| Snap / Flathub / Chocolatey | recipes written, need store accounts |
+| Flathub / Chocolatey | recipes written, need store accounts |
 
 See [docs/PACKAGING.md](docs/PACKAGING.md) for the full matrix and exactly what
 each channel is waiting on.
@@ -121,8 +130,8 @@ Most Linux download tools either do one stream well (`curl`, `wget`) or wrap
 | Queue persistence + restore on launch, throughput graph | ✅ |
 | Automation: batch + clipboard import, category folders, duplicate detection, daily-window scheduler | ✅ |
 | Languages: 7 translated (en, es, fr, de, pt, ru, zh); ~34 listed, others fall back to English | 🟡 |
-| Distribution: apt, dnf/zypper, Homebrew, Scoop, AppImage/`.dmg`/`.msi` installers | ✅ |
-| winget, AUR, Snap, Flathub, Chocolatey | ⬜ accounts/PRs pending |
+| Distribution: apt, dnf/zypper, Homebrew, Scoop, Snap (edge), AppImage/`.dmg`/`.msi` installers | ✅ |
+| winget, AUR, Flathub, Chocolatey | ⬜ accounts/PRs pending |
 | Live dynamic segmentation, per-download speed limit | ⬜ |
 | Browser integration, media grabber, site grabber | ⬜ Phases 3–4 |
 
