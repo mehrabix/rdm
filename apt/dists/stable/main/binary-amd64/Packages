@@ -1,13 +1,13 @@
 Package: rdm
-Version: 0.1.0
+Version: 0.7.1
 Architecture: amd64
 Maintainer: mehrabix <mehrabi@post.com>
 Depends: libwebkit2gtk-4.1-0, libgtk-3-0, libayatana-appindicator3-1, librsvg2-2
-Filename: pool/main/rdm_0.1.0_amd64.deb
-Size: 3936568
-MD5sum: 64081d38c38e03a66b36e5baadedcd3a
-SHA1: cce1b5a77085361001fdbd73838768998d4ecdac
-SHA256: 559a17ce462d71897ece4d88a55c423d6a68811016a19c3ac9ca31ed4e90e829
+Filename: pool/main/rdm_0.7.1_amd64.deb
+Size: 4364842
+MD5sum: 0e86b321b6aa0f97b89a9746474064c8
+SHA1: f569c2491bfb301ed5b64a57ed511f7fadbb2ade
+SHA256: ad70cdc90de3b582758b681cf5a13d0f8176537c450221a40debd490954dff05
 Section: net
 Priority: optional
 Homepage: https://github.com/mehrabix/rdm
