@@ -1,11 +1,11 @@
 # Snap package. Build + publish:
 #
 #   snapcraft pack                     # local
-#   snapcraft upload --release=stable mehrabix-rdm_0.1.0_amd64.snap
+#   snapcraft upload --release=stable rust-download-manager_0.1.0_amd64.snap
 #
 # Publishing to the Snap Store needs a store account and
 # SNAPCRAFT_STORE_CREDENTIALS (from `snapcraft export-login`).
-name: mehrabix-rdm
+name: rust-download-manager
 base: core24
 version: "0.1.0"
 summary: Fast, resumable, multi-connection download manager
@@ -18,7 +18,7 @@ license: MIT
 contact: https://github.com/mehrabix/rdm
 
 apps:
-  rdm:
+  rust-download-manager:
     command: bin/rdm
     extensions: [gnome]
     plugs:
@@ -34,7 +34,7 @@ apps:
       - removable-media
 
 parts:
-  rdm:
+  rust-download-manager:
     plugin: dump
     source: https://github.com/mehrabix/rdm/releases/download/v0.1.0/rdm-linux-x86_64.tar.gz
     source-type: tar
