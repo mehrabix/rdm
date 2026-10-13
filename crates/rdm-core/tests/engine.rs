@@ -191,7 +191,53 @@ fn queued_config(limit: usize) -> EngineConfig {
         max_concurrent: 3,
         default_connections: 8,
         queue_limits,
+        ..EngineConfig::default()
     }
+}
+
+#[tokio::test]
+async fn per_download_speed_limit_is_stored_and_settable() {
+    let data = payload(4096);
+    let addr = spawn_server(data.clone(), true).await;
+    let dir = tempfile::tempdir().unwrap();
+    let mgr = DownloadManager::new(EngineConfig::default()).unwrap();
+
+    let spec = DownloadSpec::new(format!("http://{addr}/limited.bin"), dir.path())
+        .connections(2)
+        .speed_limit(64 * 1024);
+    let id = mgr.add(spec).await.unwrap();
+
+    // The cap is recorded on the spec...
+    assert_eq!(mgr.get(&id).await.unwrap().spec.speed_limit, 64 * 1024);
+    // ...and can be changed while the transfer runs.
+    mgr.set_download_speed_limit(&id, 8 * 1024).await.unwrap();
+    assert_eq!(mgr.get(&id).await.unwrap().spec.speed_limit, 8 * 1024);
+
+    let task = wait_until_terminal(&mgr, &id, Duration::from_secs(10)).await;
+    assert_eq!(task.status, DownloadStatus::Completed, "{:?}", task.error);
+    assert_eq!(std::fs::read(dir.path().join("limited.bin")).unwrap(), data);
+}
+
+#[tokio::test]
+async fn dynamic_segmentation_completes_the_file() {
+    // A slow server plus a tiny floor makes the rebalancer split while running;
+    // whatever it does, the bytes must still be exact.
+    let data = payload(256 * 1024);
+    let addr = spawn_server(data.clone(), true).await;
+    let dir = tempfile::tempdir().unwrap();
+
+    let mut config = EngineConfig::default();
+    config.min_segment_size = 4096;
+    let mgr = DownloadManager::new(config).unwrap();
+
+    let spec = DownloadSpec::new(format!("http://{addr}/split.bin"), dir.path()).connections(4);
+    let id = mgr.add(spec).await.unwrap();
+    let task = wait_until_terminal(&mgr, &id, Duration::from_secs(20)).await;
+
+    assert_eq!(task.status, DownloadStatus::Completed, "{:?}", task.error);
+    assert_eq!(std::fs::read(dir.path().join("split.bin")).unwrap(), data);
+    // Splitting can only add segments, never remove the planned ones.
+    assert!(task.segments.len() >= 4);
 }
 
 #[tokio::test]

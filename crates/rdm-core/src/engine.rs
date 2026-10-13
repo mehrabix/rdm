@@ -8,12 +8,11 @@
 use std::collections::{BTreeMap, HashMap};
 use std::io::SeekFrom;
 use std::path::Path;
+use std::sync::{Arc, Mutex as StdMutex};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use futures::stream::{self, StreamExt};
-use futures::TryStreamExt;
+use futures::stream::{FuturesUnordered, StreamExt};
 use reqwest::Client;
 use tokio::fs::OpenOptions;
 use tokio::io::{AsyncSeekExt, AsyncWriteExt};
@@ -46,6 +45,11 @@ pub struct EngineConfig {
     pub default_connections: u8,
     /// Per-queue concurrency limits; queues not listed use `default_connections`.
     pub queue_limits: HashMap<String, usize>,
+    /// While a transfer runs, split the largest remaining segment to use a freed
+    /// connection (IDM-style dynamic segmentation). Needs range support.
+    pub dynamic_segmentation: bool,
+    /// Never split a segment smaller than this many bytes.
+    pub min_segment_size: u64,
 }
 
 impl Default for EngineConfig {
@@ -54,6 +58,8 @@ impl Default for EngineConfig {
             max_concurrent: 3,
             default_connections: 8,
             queue_limits: HashMap::new(),
+            dynamic_segmentation: true,
+            min_segment_size: 1 << 20, // 1 MiB
         }
     }
 }
@@ -72,13 +78,16 @@ pub enum EngineEvent {
 struct Control {
     cancel: CancellationToken,
     paused: Arc<AtomicBool>,
+    /// This download's own speed cap (bytes/second, 0 = unlimited).
+    limiter: Arc<RateLimiter>,
 }
 
 impl Control {
-    fn new() -> Self {
+    fn new(limit_bps: u64) -> Self {
         Self {
             cancel: CancellationToken::new(),
             paused: Arc::new(AtomicBool::new(false)),
+            limiter: Arc::new(RateLimiter::new(limit_bps)),
         }
     }
 }
@@ -129,6 +138,17 @@ impl DownloadManager {
         self.limiter.set_limit(bytes_per_sec);
     }
 
+    /// Set a single download's own speed cap in bytes/second (0 = unlimited).
+    pub async fn set_download_speed_limit(&self, id: &str, bytes_per_sec: u64) -> Result<()> {
+        let control = self.control(id).await.ok_or_else(|| not_found(id))?;
+        control.limiter.set_limit(bytes_per_sec);
+        let mut tasks = self.tasks.write().await;
+        if let Some(task) = tasks.get_mut(id) {
+            task.spec.speed_limit = bytes_per_sec;
+        }
+        Ok(())
+    }
+
     /// Re-insert a previously persisted task, so a restart restores the queue.
     /// Unfinished transfers come back paused; the caller resumes them.
     pub async fn restore(&self, mut task: DownloadTask) -> Result<String> {
@@ -144,7 +164,10 @@ impl DownloadManager {
         }
         let id = task.id.clone();
         self.tasks.write().await.insert(id.clone(), task.clone());
-        self.controls.lock().await.insert(id.clone(), Control::new());
+        self.controls
+            .lock()
+            .await
+            .insert(id.clone(), Control::new(task.spec.speed_limit));
         let _ = self.events.send(EngineEvent::Added { task });
         Ok(id)
     }
@@ -334,7 +357,7 @@ impl DownloadManager {
         self.controls
             .lock()
             .await
-            .insert(id.clone(), Control::new());
+            .insert(id.clone(), Control::new(task.spec.speed_limit));
         let _ = self.events.send(EngineEvent::Added { task });
         self.spawn(id.clone());
         Ok(id)
@@ -359,10 +382,14 @@ impl DownloadManager {
                 return Err(Error::invalid("only paused, failed or cancelled transfers can resume"));
             }
         }
+        let speed_limit = {
+            let tasks = self.tasks.read().await;
+            tasks.get(id).map(|task| task.spec.speed_limit).unwrap_or(0)
+        };
         self.controls
             .lock()
             .await
-            .insert(id.to_string(), Control::new());
+            .insert(id.to_string(), Control::new(speed_limit));
         {
             let mut tasks = self.tasks.write().await;
             if let Some(task) = tasks.get_mut(id) {
@@ -483,72 +510,67 @@ impl DownloadManager {
             }
         }
 
-        let counters: Arc<Vec<AtomicU64>> = Arc::new(
-            segments
-                .iter()
-                .map(|s| AtomicU64::new(s.downloaded))
-                .collect(),
-        );
+        let lives = Arc::new(StdMutex::new(build_lives(&segments)));
         let single = Arc::new(AtomicU64::new(0));
 
-        let ticker = self.spawn_ticker(id.to_string(), counters.clone(), single.clone(), total);
+        let ticker = self.spawn_ticker(id.to_string(), lives.clone(), single.clone(), total);
 
         let result = if segments.is_empty() {
             self.stream_single(&spec, &out_path, &opts, &single, &self.limiter, &control)
                 .await
         } else {
-            self.stream_segments(
-                &spec,
-                &segments,
-                &out_path,
-                &counters,
-                total,
-                &self.limiter,
-                &control,
-            )
-            .await
+            self.stream_segments(&spec, &lives, &out_path, &self.limiter, &control)
+                .await
         };
 
         ticker.abort();
-        self.sync_progress(id, &counters).await;
+        self.sync_progress(id, &lives, &single).await;
         result
     }
 
+    /// Keep up to `connections` segment workers busy. When a worker frees up and
+    /// no plain work remains, split the largest remaining segment and hand the
+    /// new tail to it — IDM-style dynamic segmentation.
     async fn stream_segments(
         self: &Arc<Self>,
         spec: &DownloadSpec,
-        segments: &[Segment],
+        lives: &Arc<StdMutex<Vec<Live>>>,
         out_path: &Path,
-        counters: &Arc<Vec<AtomicU64>>,
-        total: Option<u64>,
-        limiter: &Arc<RateLimiter>,
+        global: &Arc<RateLimiter>,
         control: &Control,
     ) -> Result<()> {
         let connections = spec.connections.max(1) as usize;
-        let client = self.client.clone();
+        let dynamic = self.config.dynamic_segmentation && connections > 1;
+        let min_segment = self.config.min_segment_size;
 
-        let jobs = segments.iter().cloned().enumerate().map(|(i, seg)| {
-            let client = client.clone();
-            let spec = spec.clone();
-            let out_path = out_path.to_path_buf();
-            let counters = counters.clone();
-            let limiter = limiter.clone();
-            let control = control.clone();
-            async move {
-                if seg.is_done() {
-                    return Ok(());
-                }
-                download_segment(
-                    &client, &spec, &out_path, &seg, i, &counters, total, &limiter, &control,
-                )
-                .await
+        let mut running = FuturesUnordered::new();
+        loop {
+            while running.len() < connections {
+                let Some(live) = claim_next(lives) else {
+                    if dynamic && split_largest(lives, min_segment) {
+                        continue;
+                    }
+                    break;
+                };
+                let client = self.client.clone();
+                let spec = spec.clone();
+                let out_path = out_path.to_path_buf();
+                let global = global.clone();
+                let control = control.clone();
+                running.push(async move {
+                    let result =
+                        download_live(&client, &spec, &out_path, &live, &global, &control).await;
+                    live.running.store(false, Ordering::Relaxed);
+                    result
+                });
             }
-        });
 
-        stream::iter(jobs)
-            .buffer_unordered(connections)
-            .try_collect::<Vec<()>>()
-            .await?;
+            match running.next().await {
+                Some(Ok(())) => {}
+                Some(Err(err)) => return Err(err),
+                None => break,
+            }
+        }
         Ok(())
     }
 
@@ -578,9 +600,11 @@ impl DownloadManager {
                 return Err(Error::Paused);
             }
             let chunk = chunk?;
-            limiter.acquire(chunk.len() as u64).await;
+            let len = chunk.len() as u64;
+            limiter.acquire(len).await;
+            control.limiter.acquire(len).await;
             file.write_all(&chunk).await?;
-            written += chunk.len() as u64;
+            written += len;
             single.store(written, Ordering::Relaxed);
         }
         file.flush().await?;
@@ -590,7 +614,7 @@ impl DownloadManager {
     fn spawn_ticker(
         &self,
         id: String,
-        counters: Arc<Vec<AtomicU64>>,
+        lives: Arc<StdMutex<Vec<Live>>>,
         single: Arc<AtomicU64>,
         total: Option<u64>,
     ) -> tokio::task::JoinHandle<()> {
@@ -602,14 +626,22 @@ impl DownloadManager {
             let mut last_t = Instant::now();
             loop {
                 tokio::time::sleep(PROGRESS_INTERVAL).await;
-                let downloaded = current_bytes(&counters, &single);
+                let (downloaded, segments) = {
+                    let guard = lives.lock().unwrap();
+                    if guard.is_empty() {
+                        (single.load(Ordering::Relaxed), None)
+                    } else {
+                        let segments = lives_to_segments(&guard);
+                        let sum = segments.iter().map(|s| s.downloaded).sum();
+                        (sum, Some(segments))
+                    }
+                };
                 let elapsed = last_t.elapsed();
                 meter.observe(downloaded.saturating_sub(last), elapsed);
                 last = downloaded;
                 last_t = Instant::now();
                 let speed = meter.speed();
-                let eta = total
-                    .and_then(|t| eta_secs(t.saturating_sub(downloaded), speed));
+                let eta = total.and_then(|t| eta_secs(t.saturating_sub(downloaded), speed));
 
                 let update = {
                     let mut tasks = tasks.write().await;
@@ -618,17 +650,8 @@ impl DownloadManager {
                             task.downloaded = downloaded;
                             task.speed = speed;
                             task.eta_secs = eta;
-                            for (i, counter) in counters.iter().enumerate() {
-                                if let Some(seg) = task.segments.get_mut(i) {
-                                    seg.downloaded = counter.load(Ordering::Relaxed);
-                                    seg.status = if seg.is_done() {
-                                        SegmentStatus::Done
-                                    } else if seg.status != SegmentStatus::Done {
-                                        SegmentStatus::Active
-                                    } else {
-                                        seg.status
-                                    };
-                                }
+                            if let Some(segments) = segments {
+                                task.segments = segments;
                             }
                             Some(ProgressUpdate::from_task(task))
                         }
@@ -646,15 +669,23 @@ impl DownloadManager {
         })
     }
 
-    async fn sync_progress(&self, id: &str, counters: &Arc<Vec<AtomicU64>>) {
+    async fn sync_progress(&self, id: &str, lives: &Arc<StdMutex<Vec<Live>>>, single: &Arc<AtomicU64>) {
+        let (segments, downloaded) = {
+            let guard = lives.lock().unwrap();
+            if guard.is_empty() {
+                (None, single.load(Ordering::Relaxed))
+            } else {
+                let segments = lives_to_segments(&guard);
+                let sum = segments.iter().map(|s| s.downloaded).sum();
+                (Some(segments), sum)
+            }
+        };
         let mut tasks = self.tasks.write().await;
         if let Some(task) = tasks.get_mut(id) {
-            for (i, counter) in counters.iter().enumerate() {
-                if let Some(seg) = task.segments.get_mut(i) {
-                    seg.downloaded = counter.load(Ordering::Relaxed);
-                }
+            if let Some(segments) = segments {
+                task.segments = segments;
             }
-            task.downloaded = task.segments.iter().map(|s| s.downloaded).sum();
+            task.downloaded = downloaded;
             let incomplete = task.status != DownloadStatus::Completed;
             if incomplete {
                 let _ = store::save(task);
@@ -703,22 +734,135 @@ impl DownloadManager {
     }
 }
 
-async fn download_segment(
+/// One byte range being worked on. `end` may shrink when the range is split, and
+/// the owning task re-reads it, so a split takes effect at the next chunk.
+#[derive(Clone)]
+struct Live {
+    start: u64,
+    end: Arc<AtomicU64>,
+    progress: Arc<AtomicU64>,
+    running: Arc<AtomicBool>,
+}
+
+impl Live {
+    /// Bytes still to fetch, inclusive.
+    fn remaining(&self) -> u64 {
+        let pos = self.start + self.progress.load(Ordering::Relaxed);
+        let end = self.end.load(Ordering::Relaxed);
+        if pos > end {
+            0
+        } else {
+            end - pos + 1
+        }
+    }
+}
+
+fn build_lives(segments: &[Segment]) -> Vec<Live> {
+    segments
+        .iter()
+        .map(|seg| Live {
+            start: seg.start,
+            end: Arc::new(AtomicU64::new(seg.end)),
+            progress: Arc::new(AtomicU64::new(seg.downloaded)),
+            running: Arc::new(AtomicBool::new(false)),
+        })
+        .collect()
+}
+
+/// Snapshot the live ranges as persisted `Segment`s, for the task list and UI.
+fn lives_to_segments(lives: &[Live]) -> Vec<Segment> {
+    lives
+        .iter()
+        .enumerate()
+        .map(|(index, live)| {
+            let end = live.end.load(Ordering::Relaxed);
+            let done = live.progress.load(Ordering::Relaxed);
+            let finished = live.start + done > end;
+            Segment {
+                index: index as u32,
+                start: live.start,
+                end,
+                downloaded: if finished {
+                    end.saturating_sub(live.start) + 1
+                } else {
+                    done
+                },
+                status: if finished {
+                    SegmentStatus::Done
+                } else if live.running.load(Ordering::Relaxed) {
+                    SegmentStatus::Active
+                } else {
+                    SegmentStatus::Pending
+                },
+            }
+        })
+        .collect()
+}
+
+/// Claim the next unfinished, not-running range.
+fn claim_next(lives: &Arc<StdMutex<Vec<Live>>>) -> Option<Live> {
+    let mut guard = lives.lock().unwrap();
+    let live = guard
+        .iter_mut()
+        .find(|live| !live.running.load(Ordering::Relaxed) && live.remaining() > 0)?;
+    live.running.store(true, Ordering::Relaxed);
+    Some(live.clone())
+}
+
+/// Split the largest remaining range roughly in half, if worth it. The existing
+/// range keeps the downloaded prefix; the tail becomes a new, unclaimed range.
+fn split_largest(lives: &Arc<StdMutex<Vec<Live>>>, min_len: u64) -> bool {
+    let mut guard = lives.lock().unwrap();
+    let idx = guard
+        .iter()
+        .enumerate()
+        .filter(|(_, live)| live.remaining() >= min_len.saturating_mul(2))
+        .max_by_key(|(_, live)| live.remaining())
+        .map(|(i, _)| i);
+    let Some(idx) = idx else {
+        return false;
+    };
+
+    let (start, done, end) = {
+        let live = &guard[idx];
+        (
+            live.start,
+            live.progress.load(Ordering::Relaxed),
+            live.end.load(Ordering::Relaxed),
+        )
+    };
+    let pos = start + done;
+    if pos > end {
+        return false;
+    }
+    let remaining = end - pos + 1;
+    let tail_start = pos + remaining / 2;
+    if tail_start <= pos || tail_start > end {
+        return false;
+    }
+
+    guard[idx].end.store(tail_start - 1, Ordering::Relaxed);
+    guard.push(Live {
+        start: tail_start,
+        end: Arc::new(AtomicU64::new(end)),
+        progress: Arc::new(AtomicU64::new(0)),
+        running: Arc::new(AtomicBool::new(false)),
+    });
+    true
+}
+
+async fn download_live(
     client: &Client,
     spec: &DownloadSpec,
     out_path: &Path,
-    seg: &Segment,
-    index: usize,
-    counters: &Arc<Vec<AtomicU64>>,
-    _total: Option<u64>,
-    limiter: &Arc<RateLimiter>,
+    live: &Live,
+    global: &Arc<RateLimiter>,
     control: &Control,
 ) -> Result<()> {
     let opts = RequestOptions::from_spec(spec);
-    let mut downloaded = seg.downloaded;
     let mut stalls = 0u32;
 
-    while downloaded < seg.len() {
+    loop {
         if control.cancel.is_cancelled() {
             return Err(Error::Cancelled);
         }
@@ -726,10 +870,16 @@ async fn download_segment(
             return Err(Error::Paused);
         }
 
-        let before = downloaded;
-        let start = seg.start + downloaded;
-        let resp = http::fetch_range(client, &spec.url, start, seg.end, &opts).await?;
+        // Re-read each pass: a concurrent split may have shrunk our range.
+        let end = live.end.load(Ordering::Relaxed);
+        let done = live.progress.load(Ordering::Relaxed);
+        let start = live.start + done;
+        if start > end {
+            break;
+        }
 
+        let before = done;
+        let resp = http::fetch_range(client, &spec.url, start, end, &opts).await?;
         let mut file = OpenOptions::new()
             .write(true)
             .create(true)
@@ -737,6 +887,7 @@ async fn download_segment(
             .await?;
         file.seek(SeekFrom::Start(start)).await?;
 
+        let mut written = done;
         let mut stream = resp.bytes_stream();
         while let Some(chunk) = stream.next().await {
             if control.cancel.is_cancelled() {
@@ -746,18 +897,25 @@ async fn download_segment(
                 return Err(Error::Paused);
             }
             let chunk = chunk?;
-            limiter.acquire(chunk.len() as u64).await;
+            let len = chunk.len() as u64;
+            global.acquire(len).await;
+            control.limiter.acquire(len).await;
             file.write_all(&chunk).await?;
-            downloaded += chunk.len() as u64;
-            counters[index].store(downloaded, Ordering::Relaxed);
+            written += len;
+            live.progress.store(written, Ordering::Relaxed);
+            // A split may have moved our end earlier; stop and let the tail run.
+            if live.start + written > live.end.load(Ordering::Relaxed) {
+                break;
+            }
         }
         file.flush().await?;
 
-        if downloaded == before {
+        if written == before {
             stalls += 1;
             if stalls > 8 {
                 return Err(Error::internal(format!(
-                    "segment {index} stalled at byte {downloaded}"
+                    "segment stalled at byte {}",
+                    live.start + written
                 )));
             }
             tokio::time::sleep(Duration::from_millis(250 * stalls as u64)).await;
@@ -766,14 +924,6 @@ async fn download_segment(
         }
     }
     Ok(())
-}
-
-fn current_bytes(counters: &Arc<Vec<AtomicU64>>, single: &Arc<AtomicU64>) -> u64 {
-    if counters.is_empty() {
-        single.load(Ordering::Relaxed)
-    } else {
-        counters.iter().map(|c| c.load(Ordering::Relaxed)).sum()
-    }
 }
 
 async fn preallocate(path: &Path, total: u64) -> Result<()> {
@@ -791,4 +941,54 @@ fn now() -> i64 {
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_secs() as i64)
         .unwrap_or(0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn lives_round_trip_preserves_progress() {
+        let mut segments = segment::plan(1000, 2);
+        segments[0].downloaded = 100;
+        let back = lives_to_segments(&build_lives(&segments));
+        assert_eq!(back.len(), 2);
+        assert_eq!(back[0].start, segments[0].start);
+        assert_eq!(back[0].end, segments[0].end);
+        assert_eq!(back[0].downloaded, 100);
+    }
+
+    #[test]
+    fn claim_marks_running_and_skips_the_rest() {
+        let lives = Arc::new(StdMutex::new(build_lives(&segment::plan(1000, 2))));
+        let first = claim_next(&lives).expect("first claim");
+        assert!(first.running.load(Ordering::Relaxed));
+        let second = claim_next(&lives).expect("second claim");
+        assert_ne!(first.start, second.start);
+        assert!(claim_next(&lives).is_none(), "both ranges are taken");
+    }
+
+    #[test]
+    fn split_conserves_bytes_and_keeps_the_prefix() {
+        let mut segments = segment::plan(1000, 1);
+        segments[0].downloaded = 200;
+        let lives = Arc::new(StdMutex::new(build_lives(&segments)));
+
+        let before: u64 = lives.lock().unwrap().iter().map(|l| l.remaining()).sum();
+        assert!(split_largest(&lives, 10));
+        let guard = lives.lock().unwrap();
+        let after: u64 = guard.iter().map(|l| l.remaining()).sum();
+        assert_eq!(before, after, "a split must not lose bytes");
+        assert_eq!(guard.len(), 2);
+        assert_eq!(guard[0].start + guard[0].progress.load(Ordering::Relaxed), 200);
+        assert_eq!(guard[0].end.load(Ordering::Relaxed) + 1, guard[1].start);
+        assert_eq!(guard[1].end.load(Ordering::Relaxed), 999);
+    }
+
+    #[test]
+    fn split_declines_when_below_the_floor() {
+        let lives = Arc::new(StdMutex::new(build_lives(&segment::plan(100, 2))));
+        assert!(!split_largest(&lives, 1000));
+        assert_eq!(lives.lock().unwrap().len(), 2);
+    }
 }

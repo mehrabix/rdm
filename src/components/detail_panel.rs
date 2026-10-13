@@ -62,6 +62,8 @@ pub fn DetailPanel(state: Downloads) -> Element {
     let segments = task.segments.clone();
     let done = status == DownloadStatus::Completed;
     let folder_path = task.output_path();
+    let task_id = task.id.clone();
+    let limit_kbps = task.spec.speed_limit / 1024;
 
     rsx! {
         aside { class: "flex w-80 shrink-0 flex-col gap-3 overflow-y-auto border-l border-border bg-card/40 p-4 text-sm",
@@ -91,6 +93,22 @@ pub fn DetailPanel(state: Downloads) -> Element {
             }
 
             Separator {}
+
+            div { class: "flex items-center justify-between gap-2 text-xs",
+                span { class: "text-muted-foreground", Tr { k: "options.connection.speed_limit" } }
+                input {
+                    r#type: "number",
+                    class: "h-7 w-24 rounded-md border border-input bg-transparent px-2 text-right text-xs tabular-nums",
+                    value: "{limit_kbps}",
+                    min: "0",
+                    title: "{limit_kbps}",
+                    onchange: move |event: FormEvent| {
+                        if let Ok(value) = event.value().parse::<u32>() {
+                            state.set_speed_limit(task_id.clone(), value);
+                        }
+                    },
+                }
+            }
 
             div { class: "flex flex-col gap-1.5 text-xs",
                 Field { label: "URL", value: final_url }

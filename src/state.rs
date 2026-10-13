@@ -24,6 +24,7 @@ pub fn engine() -> Arc<DownloadManager> {
                 max_concurrent: boot.max_concurrent.max(1) as usize,
                 default_connections: boot.connections.max(1),
                 queue_limits: boot.queue_limits(),
+                ..EngineConfig::default()
             };
             DownloadManager::new(config).expect("failed to construct the RDM download engine")
         })
@@ -209,6 +210,18 @@ impl Downloads {
         spawn(async move {
             if let Err(err) = state.try_add(url, dir, organize).await {
                 tracing::error!(%err, "could not queue download");
+            }
+        });
+    }
+
+    /// Set one download's own speed cap (KB/s; 0 = unlimited).
+    pub fn set_speed_limit(&self, id: String, kbps: u32) {
+        spawn(async move {
+            if let Err(err) = engine()
+                .set_download_speed_limit(&id, kbps as u64 * 1024)
+                .await
+            {
+                tracing::error!(%err, "could not set the download speed limit");
             }
         });
     }

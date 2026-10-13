@@ -160,6 +160,10 @@ pub struct DownloadSpec {
     /// Named queue this download belongs to (IDM-style).
     #[serde(default)]
     pub queue: String,
+    /// This download's own speed cap, in bytes/second (0 = unlimited). Applied
+    /// on top of the app-wide limit.
+    #[serde(default)]
+    pub speed_limit: u64,
 }
 
 impl DownloadSpec {
@@ -174,6 +178,7 @@ impl DownloadSpec {
             referer: None,
             cookies: None,
             queue: DEFAULT_QUEUE.to_string(),
+            speed_limit: 0,
         }
     }
 
@@ -188,6 +193,12 @@ impl DownloadSpec {
 
     pub fn connections(mut self, n: u8) -> Self {
         self.connections = n.max(1);
+        self
+    }
+
+    /// Cap this download's throughput (bytes/second, 0 = unlimited).
+    pub fn speed_limit(mut self, bytes_per_sec: u64) -> Self {
+        self.speed_limit = bytes_per_sec;
         self
     }
 

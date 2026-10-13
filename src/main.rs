@@ -48,6 +48,8 @@ fn main() {
         .with_custom_head(head)
         // Paint the app's dark surface before the webview renders anything.
         .with_background_color((28, 26, 36, 255))
+        // No right-click "Inspect Element" (and no devtools) in release builds.
+        .with_disable_context_menu(!cfg!(debug_assertions))
         .with_menu(None);
 
     dioxus::LaunchBuilder::desktop()
