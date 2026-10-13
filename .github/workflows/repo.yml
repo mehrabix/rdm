@@ -3,8 +3,13 @@ name: Repositories
 # Turns each published release into signed, installable package repositories on
 # GitHub Pages:
 #
+#   site  → https://mehrabix.github.io/rdm/       (landing page, from site/)
 #   apt   → https://mehrabix.github.io/rdm/apt    (apt-get install rdm)
 #   rpm   → https://mehrabix.github.io/rdm/rpm    (dnf install rdm)
+#
+# The landing page lives in `site/` and is copied in here, because the publish
+# step replaces the whole branch (`keep_files: false`) — anything committed to
+# gh-pages by hand would be silently dropped on the next release.
 #
 # The signing key lives in the repo secrets: GPG_PRIVATE_KEY + GPG_PASSPHRASE.
 # The matching public key is published at /rdm.gpg and committed at
@@ -12,7 +17,16 @@ name: Repositories
 on:
   release:
     types: [published]
+  push:
+    branches: [main]
+    # Only the site or this workflow: a rebuild re-downloads the latest release.
+    paths: ["site/**", ".github/workflows/repo.yml"]
   workflow_dispatch:
+
+# Both triggers write to `gh-pages`; queue them instead of racing.
+concurrency:
+  group: gh-pages
+  cancel-in-progress: false
 
 permissions:
   contents: write
@@ -102,6 +116,13 @@ jobs:
           # Keep the armored copy for dnf/zypper and for humans to inspect.
           gpg --armor --export "$KEYID" > public/rdm.asc
           cp public/rdm.asc packaging/rdm-archive-key.asc
+
+      - name: Add the landing page
+        run: |
+          mkdir -p public
+          cp -r site/. public/
+          # Served verbatim: Jekyll would otherwise mangle the package trees.
+          touch public/.nojekyll
 
       - name: Publish to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4

@@ -1,0 +1,414 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>RDM — Rust Download Manager</title>
+    <meta
+      name="description"
+      content="A fast, resumable, multi-connection download manager for Linux, Windows and macOS. Segmented transfers, real resume, IDM-style video detection, HLS/DASH assembly and a browser extension."
+    />
+    <link rel="icon" href="assets/icon.png" />
+    <link rel="stylesheet" href="styles.css" />
+    <meta property="og:title" content="RDM — Rust Download Manager" />
+    <meta
+      property="og:description"
+      content="Segmented, resumable downloads with IDM-style video detection — one Rust binary, no Electron."
+    />
+    <meta property="og:type" content="website" />
+  </head>
+  <body>
+    <header class="nav">
+      <a class="brand" href="#top">
+        <img src="assets/icon.png" alt="" width="28" height="28" />
+        <span>RDM</span>
+      </a>
+      <nav>
+        <a href="#features">Features</a>
+        <a href="#media">Video</a>
+        <a href="#install">Install</a>
+        <a href="#extension">Extension</a>
+        <a href="#status">Status</a>
+        <a class="gh" href="https://github.com/mehrabix/rdm">GitHub</a>
+      </nav>
+    </header>
+
+    <main id="top">
+      <!-- ---------------------------------------------------------------- hero -->
+      <section class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">Rust · Linux · Windows · macOS</p>
+          <h1>A download manager that does the hard part itself.</h1>
+          <p class="lede">
+            RDM splits a file into up to 32 parallel ranges, re-splits slow
+            segments while the transfer runs, and resumes from the last byte
+            after a crash. It also detects video the way IDM does — by watching
+            what the player actually fetches — and assembles HLS, DASH and
+            yt-dlp-supported streams.
+          </p>
+          <div class="cta">
+            <a class="btn primary" href="https://github.com/mehrabix/rdm/releases/latest">
+              Download <span id="version">latest</span>
+            </a>
+            <a class="btn" href="#install">Install with a package manager</a>
+          </div>
+          <p class="fineprint">
+            MIT licensed · no Electron · headless engine, tested without a display
+          </p>
+        </div>
+
+        <!-- A drawn mock of the app (not a screenshot): honest and crisp at any DPI. -->
+        <div class="mock" aria-hidden="true">
+          <div class="mock-bar">
+            <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+            <span class="mock-title">RDM — Rust Download Manager</span>
+          </div>
+          <div class="mock-toolbar">
+            <span class="pill">+ New</span>
+            <span class="pill">▶ Resume</span>
+            <span class="pill">⏸ Pause</span>
+            <span class="pill">🗑 Remove</span>
+            <span class="search">Search…</span>
+          </div>
+          <div class="mock-body">
+            <ul class="mock-rail">
+              <li class="active">All <b>12</b></li>
+              <li>Active <b>3</b></li>
+              <li>Queued</li>
+              <li>Finished <b>7</b></li>
+              <li>Video <b>2</b></li>
+            </ul>
+            <table class="mock-table">
+              <tr>
+                <td>big-file.iso</td>
+                <td class="num">4.2 GB</td>
+                <td class="bar"><i style="width: 62%"></i></td>
+                <td class="num speed">18.4 MB/s</td>
+              </tr>
+              <tr>
+                <td>archive.tar.zst</td>
+                <td class="num">820 MB</td>
+                <td class="bar"><i style="width: 31%"></i></td>
+                <td class="num speed">6.1 MB/s</td>
+              </tr>
+              <tr>
+                <td>ubuntu-26.04.iso</td>
+                <td class="num">5.9 GB</td>
+                <td class="bar"><i class="done" style="width: 100%"></i></td>
+                <td class="num">Done</td>
+              </tr>
+              <tr>
+                <td>interview-1080p.mp4</td>
+                <td class="num">1.1 GB</td>
+                <td class="bar"><i style="width: 12%"></i></td>
+                <td class="num speed">3.2 MB/s</td>
+              </tr>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ------------------------------------------------------------ features -->
+      <section id="features" class="section">
+        <h2>What makes it different</h2>
+        <div class="grid">
+          <article>
+            <h3>Segmented, then re-segmented</h3>
+            <p>
+              Up to 32 byte-range requests in parallel, written at their own
+              offsets. A lagging segment is split again mid-flight so one slow
+              connection can't stall the file.
+            </p>
+          </article>
+          <article>
+            <h3>Resume that survives a crash</h3>
+            <p>
+              The segment table is checkpointed to a sidecar, so killing the
+              process — or losing power — continues from the last byte instead
+              of starting over.
+            </p>
+          </article>
+          <article>
+            <h3>Speed limits, both kinds</h3>
+            <p>
+              A global cap, plus a per-download limit in the detail panel. Named
+              queues carry their own limits and concurrency.
+            </p>
+          </article>
+          <article>
+            <h3>Video, the IDM way</h3>
+            <p>
+              The extension watches the network and the page's own
+              <code>fetch</code>/XHR/MSE calls, so manifests and media behind
+              <code>blob:</code> players are found — then RDM routes on the real
+              media type.
+            </p>
+          </article>
+          <article>
+            <h3>Streams assembled properly</h3>
+            <p>
+              HLS playlists are assembled and remuxed to <code>.mp4</code> with
+              ffmpeg; DASH manifests and the long tail of sites go to
+              <code>yt-dlp</code>, with a quality picker from its format list.
+            </p>
+          </article>
+          <article>
+            <h3>Site grabber</h3>
+            <p>
+              Crawl a page to a chosen depth, stay on-origin or include CDNs,
+              filter with globs like <code>*.mp4</code>, tick what you want, and
+              queue it all in one click.
+            </p>
+          </article>
+          <article>
+            <h3>Native everywhere</h3>
+            <p>
+              One Rust binary with a Dioxus UI: tray menu with live downloads,
+              dark/light/system themes, clipboard capture, a daily scheduler.
+            </p>
+          </article>
+          <article>
+            <h3>Eight languages, RTL done right</h3>
+            <p>
+              English, Spanish, French, German, Portuguese, Russian, Chinese and
+              Persian — with logical layout properties so the RTL UI doesn't
+              overflow. The bundled Vazirmatn font covers Latin and Arabic
+              script in one face.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <!-- --------------------------------------------------------------- media -->
+      <section id="media" class="section">
+        <h2>How video detection works</h2>
+        <p class="section-lede">
+          RDM never guesses from a URL alone. The extension reports what the
+          <em>player</em> actually requested, with the metadata needed to
+          download it later.
+        </p>
+        <div class="table-wrap">
+          <table class="plain">
+            <thead>
+              <tr><th>Signal</th><th>What it catches</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Network monitor (<code>webRequest</code>)</td>
+                <td>
+                  Manifests and media classified by response
+                  <code>Content-Type</code> — including signed, expiring and
+                  extension-less stream URLs
+                </td>
+              </tr>
+              <tr>
+                <td>URL monitor</td>
+                <td>Direct <code>.mp4</code>/<code>.webm</code>/… and <code>.m3u8</code>/<code>.mpd</code></td>
+              </tr>
+              <tr>
+                <td>DOM scan</td>
+                <td><code>&lt;video&gt;</code>/<code>&lt;audio&gt;</code>/<code>&lt;source&gt;</code>, including nodes added after load</td>
+              </tr>
+              <tr>
+                <td>Page-context hooks</td>
+                <td>
+                  <code>fetch</code>, <code>XMLHttpRequest</code> and the
+                  MediaSource API — the traffic behind <code>blob:</code> players
+                  that extensions cannot see from their own world
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="note">
+          Candidates are handed to RDM <strong>with their media type and
+          referer</strong>, and the engine routes on that: <code>.m3u8</code> is
+          assembled (then remuxed to <code>.mp4</code>), a DASH manifest goes to
+          <code>yt-dlp</code>, a plain video downloads directly. Anything RDM
+          can't see through falls back to the page URL and <code>yt-dlp</code>'s
+          extractors. DRM-protected streams are deliberately out of scope.
+        </p>
+      </section>
+
+      <!-- ------------------------------------------------------------- install -->
+      <section id="install" class="section">
+        <h2>Install</h2>
+        <p class="section-lede">
+          Pick a channel, or take a build straight from the
+          <a href="https://github.com/mehrabix/rdm/releases/latest">latest release</a>.
+        </p>
+
+        <div class="tabs">
+          <input type="radio" name="pm" id="pm-apt" checked />
+          <input type="radio" name="pm" id="pm-dnf" />
+          <input type="radio" name="pm" id="pm-brew" />
+          <input type="radio" name="pm" id="pm-scoop" />
+          <input type="radio" name="pm" id="pm-snap" />
+          <input type="radio" name="pm" id="pm-direct" />
+
+          <div class="tab-labels">
+            <label for="pm-apt">Debian / Ubuntu</label>
+            <label for="pm-dnf">Fedora / RHEL</label>
+            <label for="pm-brew">macOS</label>
+            <label for="pm-scoop">Windows</label>
+            <label for="pm-snap">Snap</label>
+            <label for="pm-direct">Direct</label>
+          </div>
+
+          <div class="tab-panels">
+            <div class="panel" data-for="pm-apt">
+              <pre><code>curl -fsSL https://mehrabix.github.io/rdm/rdm.gpg \
+  | sudo tee /usr/share/keyrings/rdm.gpg &gt;/dev/null
+echo "deb [signed-by=/usr/share/keyrings/rdm.gpg] https://mehrabix.github.io/rdm/apt stable main" \
+  | sudo tee /etc/apt/sources.list.d/rdm.list
+sudo apt update &amp;&amp; sudo apt install rdm</code><button class="copy" type="button">Copy</button></pre>
+              <p class="note">
+                If apt complains the key has an <em>unsupported filetype</em>,
+                pipe it through <code>gpg --dearmor</code>.
+              </p>
+            </div>
+
+            <div class="panel" data-for="pm-dnf">
+              <pre><code>sudo curl -fsSL https://mehrabix.github.io/rdm/rdm.asc \
+  -o /etc/pki/rpm-gpg/RPM-GPG-KEY-rdm
+sudo dnf config-manager --add-repo https://mehrabix.github.io/rdm/rpm
+sudo dnf install rdm</code><button class="copy" type="button">Copy</button></pre>
+            </div>
+
+            <div class="panel" data-for="pm-brew">
+              <pre><code>brew tap mehrabix/rdm
+brew install --cask rdm</code><button class="copy" type="button">Copy</button></pre>
+              <p class="note">Installs <code>RDM.app</code> (Apple silicon).</p>
+            </div>
+
+            <div class="panel" data-for="pm-scoop">
+              <pre><code>scoop bucket add mehrabix https://github.com/mehrabix/scoop-bucket
+scoop install rdm</code><button class="copy" type="button">Copy</button></pre>
+            </div>
+
+            <div class="panel" data-for="pm-snap">
+              <pre><code>sudo snap install rust-download-manager --edge</code><button class="copy" type="button">Copy</button></pre>
+              <p class="note">Published to <em>edge</em> while it stabilises; the command is <code>rust-download-manager</code>.</p>
+            </div>
+
+            <div class="panel" data-for="pm-direct">
+              <ul class="files">
+                <li><a href="https://github.com/mehrabix/rdm/releases/latest">Linux</a> — AppImage, <code>.deb</code>, <code>.rpm</code></li>
+                <li><a href="https://github.com/mehrabix/rdm/releases/latest">macOS</a> — <code>.dmg</code> or zipped <code>RDM.app</code></li>
+                <li><a href="https://github.com/mehrabix/rdm/releases/latest">Windows</a> — <code>.msi</code></li>
+                <li><a href="https://github.com/mehrabix/rdm/releases/latest">Extension</a> — <code>.crx</code>, Chromium <code>.zip</code>, Firefox <code>.xpi</code></li>
+              </ul>
+              <p class="note">Every artifact ships a <code>.sha256</code> checksum.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ----------------------------------------------------------- extension -->
+      <section id="extension" class="section">
+        <h2>Browser integration</h2>
+        <div class="two-col">
+          <div>
+            <p>
+              A right-click <strong>Download using RDM</strong> entry, a toolbar
+              popup listing everything detected on the page, and a dismissible
+              badge over every video that opens a quality menu.
+            </p>
+            <ol class="steps">
+              <li>Install RDM — the <code>.deb</code> also registers the native-messaging host.</li>
+              <li>From a tarball, run <code>scripts/install-browser-host.sh</code> once.</li>
+              <li>
+                Load the extension: <em>Load unpacked</em> from
+                <code>chrome://extensions</code>, or drag the released
+                <code>.crx</code>; Firefox uses the <code>.xpi</code> from
+                <code>about:debugging</code>.
+              </li>
+              <li>Start RDM — the extension talks to it over a local Unix socket.</li>
+            </ol>
+            <p class="note">
+              Cookies are read only for the site you're downloading from, and the
+              socket accepts <code>http(s)</code> URLs only — it can never be
+              asked to run a command.
+            </p>
+          </div>
+          <div class="mock small" aria-hidden="true">
+            <div class="mock-bar">
+              <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+              <span class="mock-title">RDM</span>
+            </div>
+            <ul class="popup">
+              <li><span class="chip hls">HLS</span> master.m3u8 <b>Download</b></li>
+              <li><span class="chip dash">DASH</span> manifest.mpd <b>Download</b></li>
+              <li><span class="chip video">Video</span> interview-1080p.mp4 <b>Download</b></li>
+              <li><span class="chip audio">Audio</span> track.m4a <b>Download</b></li>
+            </ul>
+            <div class="badge-demo">
+              <span class="badge">⬇ Download using RDM</span>
+              <span class="badge-x">×</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- -------------------------------------------------------------- status -->
+      <section id="status" class="section">
+        <h2>Status</h2>
+        <div class="table-wrap">
+          <table class="plain">
+            <thead>
+              <tr><th>Area</th><th>State</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Engine: probe, segmentation, live re-segmentation, resume, pause/cancel, ETA, global + per-download speed limits, named queues</td><td class="yes">shipped</td></tr>
+              <tr><td>UI: menu, toolbar, category rail, table, context menu, options, detail panel, tray</td><td class="yes">shipped</td></tr>
+              <tr><td>Automation: batch + clipboard import, category folders, duplicate detection, daily scheduler</td><td class="yes">shipped</td></tr>
+              <tr><td>Languages: en, es, fr, de, pt, ru, zh, fa (+ RTL) with a bundled font</td><td class="yes">shipped</td></tr>
+              <tr><td>Browser detection: link menu, popup registry, video badges, network + page-context hooks</td><td class="yes">shipped</td></tr>
+              <tr><td>Media: HLS assembly (+ <code>.mp4</code> remux), DASH &amp; site extraction via <code>yt-dlp</code>, quality picker</td><td class="yes">shipped</td></tr>
+              <tr><td>Site grabber: crawl, depth, include/exclude globs, typed results</td><td class="yes">shipped</td></tr>
+              <tr><td>Packaging: apt, dnf/zypper, Homebrew, Scoop, Snap (edge), AppImage / <code>.dmg</code> / <code>.msi</code></td><td class="yes">shipped</td></tr>
+              <tr><td>winget, AUR, Flathub, Chocolatey</td><td class="no">accounts pending</td></tr>
+              <tr><td>Offline browsing and saved/scheduled grabber projects</td><td class="no">planned</td></tr>
+              <tr><td>Windows named-pipe transport for the native host</td><td class="no">planned</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="note">
+          The exhaustive IDM-parity matrix lives in the
+          <a href="https://github.com/mehrabix/rdm/blob/main/docs/MASTERPLAN.md">masterplan</a>.
+          RDM is an independent project and is not affiliated with Internet
+          Download Manager.
+        </p>
+      </section>
+
+      <!-- --------------------------------------------------------------- build -->
+      <section id="build" class="section">
+        <h2>Build from source</h2>
+        <pre><code>sudo apt install -y libwebkit2gtk-4.1-dev libxdo-dev lld \
+  libssl-dev libayatana-appindicator3-dev librsvg2-dev
+curl https://sh.rustup.rs -sSf | sh
+curl -sSL https://dioxus.dev/install.sh | bash
+pnpm install &amp;&amp; pnpm dev
+
+# the engine alone needs no GUI dependencies
+cargo test -p rdm-core</code><button class="copy" type="button">Copy</button></pre>
+      </section>
+    </main>
+
+    <footer>
+      <div>
+        <img src="assets/icon.png" alt="" width="22" height="22" />
+        <span>RDM — Rust Download Manager · MIT</span>
+      </div>
+      <nav>
+        <a href="https://github.com/mehrabix/rdm">Repository</a>
+        <a href="https://github.com/mehrabix/rdm/blob/main/README.md">README</a>
+        <a href="https://github.com/mehrabix/rdm/blob/main/docs/MASTERPLAN.md">Masterplan</a>
+        <a href="https://github.com/mehrabix/rdm/blob/main/docs/PACKAGING.md">Packaging</a>
+        <a href="https://github.com/mehrabix/rdm/releases">Releases</a>
+      </nav>
+    </footer>
+
+    <script src="site.js"></script>
+  </body>
+</html>
