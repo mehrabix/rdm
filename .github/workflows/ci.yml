@@ -34,8 +34,10 @@ jobs:
             bundle_args: "--package-types appimage"
           - os: windows-latest
             bundle_args: "--package-types msi"
+          # Just the `.app`: the runner has no room for a debug `.dmg`
+          # (`hdiutil: No space left on device`). `release.yml` makes the dmg.
           - os: macos-latest
-            bundle_args: "--package-types macos --package-types dmg"
+            bundle_args: "--package-types macos"
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -54,9 +56,18 @@ jobs:
       - name: Install the Dioxus CLI
         shell: bash
         run: |
-          curl -sSL https://dioxus.dev/install.sh | bash
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
           echo "$HOME/.dx/bin" >> "$GITHUB_PATH"
+          # dioxus.dev occasionally resets the connection mid-download; retry.
+          for attempt in 1 2 3; do
+            if curl -fsSL --retry 3 --retry-connrefused https://dioxus.dev/install.sh | bash; then
+              exit 0
+            fi
+            echo "dx install attempt $attempt failed; retrying" >&2
+            sleep 5
+          done
+          echo "could not install the Dioxus CLI" >&2
+          exit 1
 
       # `dx` runs the Tailwind compiler itself, but the app's own tooling needs
       # node/pnpm present.

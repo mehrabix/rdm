@@ -68,9 +68,18 @@ jobs:
       - name: Install the Dioxus CLI
         shell: bash
         run: |
-          curl -sSL https://dioxus.dev/install.sh | bash
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
           echo "$HOME/.dx/bin" >> "$GITHUB_PATH"
+          # dioxus.dev occasionally resets the connection mid-download; retry.
+          for attempt in 1 2 3; do
+            if curl -fsSL --retry 3 --retry-connrefused https://dioxus.dev/install.sh | bash; then
+              exit 0
+            fi
+            echo "dx install attempt $attempt failed; retrying" >&2
+            sleep 5
+          done
+          echo "could not install the Dioxus CLI" >&2
+          exit 1
 
       - uses: pnpm/action-setup@v4
         with:
