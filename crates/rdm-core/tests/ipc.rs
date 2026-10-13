@@ -131,6 +131,7 @@ async fn add_over_the_socket_downloads_the_file() {
             user_agent: None,
             connections: Some(4),
             queue: None,
+            height: None,
         },
     )
     .await

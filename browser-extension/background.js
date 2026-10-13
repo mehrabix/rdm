@@ -48,13 +48,27 @@ function cookiesFor(url) {
 }
 
 /// Forward an http(s) URL to RDM; resolves with `{ok, id|error}`.
-async function queue(url, referer) {
+async function queue(url, referer, height) {
   if (!/^https?:/i.test(url || "")) {
     return { ok: false, error: "not an http(s) URL" };
   }
   try {
     const cookies = await cookiesFor(url);
-    const response = await sendNative({ action: "add", url, referer, cookies });
+    const response = await sendNative({ action: "add", url, referer, cookies, height });
+    if (!response) return { ok: false, error: "no response from RDM" };
+    return response;
+  } catch (err) {
+    return { ok: false, error: String((err && err.message) || err) };
+  }
+}
+
+/// Ask RDM which video heights a URL offers.
+async function qualities(url) {
+  if (!/^https?:/i.test(url || "")) {
+    return { ok: false, error: "not an http(s) URL" };
+  }
+  try {
+    const response = await sendNative({ action: "qualities", url });
     if (!response) return { ok: false, error: "no response from RDM" };
     return response;
   } catch (err) {
@@ -88,8 +102,12 @@ api.contextMenus.onClicked.addListener(async (info) => {
 api.runtime.onMessage.addListener((message, _sender, respond) => {
   if (!message) return undefined;
   if (message.type === "rdm:add") {
-    queue(message.url, message.referer).then(respond);
+    queue(message.url, message.referer, message.height).then(respond);
     return true; // keep the channel open for the async reply
+  }
+  if (message.type === "rdm:qualities") {
+    qualities(message.url).then(respond);
+    return true;
   }
   if (message.type === "rdm:ping") {
     sendNative({ action: "ping" })

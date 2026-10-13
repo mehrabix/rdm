@@ -305,6 +305,37 @@ impl DownloadManager {
         http::probe(&self.client, &spec.url, &opts).await
     }
 
+    /// The video heights a URL offers, largest first, for a quality picker.
+    /// Runs `yt-dlp -J`; empty when the tool is missing or the URL has no video.
+    pub async fn qualities(&self, url: &str) -> Result<Vec<u32>> {
+        let binary =
+            ytdlp::find_binary().ok_or_else(|| Error::invalid("yt-dlp is not installed"))?;
+        let js_runtime = ytdlp::find_js_runtime();
+        let opts = ytdlp::Options {
+            cookies_from_browser: self.config.ytdlp_cookies_from_browser.as_deref(),
+            js_runtime: js_runtime.as_deref(),
+            ..ytdlp::Options::default()
+        };
+
+        let output = tokio::process::Command::new(&binary)
+            .args(ytdlp::list_args(url, &opts))
+            .stdin(std::process::Stdio::null())
+            .output()
+            .await
+            .map_err(|err| Error::internal(format!("could not run yt-dlp: {err}")))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            let detail = stderr
+                .lines()
+                .rev()
+                .find(|line| !line.trim().is_empty())
+                .unwrap_or("yt-dlp could not list formats");
+            return Err(Error::internal(detail.to_string()));
+        }
+        Ok(ytdlp::parse_heights(&String::from_utf8_lossy(&output.stdout)))
+    }
+
     /// Queue and start a transfer. Returns the new id *immediately* — the probe
     /// and segment plan happen in the background, so the UI never stalls on a
     /// slow server.
@@ -788,8 +819,12 @@ impl DownloadManager {
 
         let mut command = tokio::process::Command::new(&binary);
         let js_runtime = ytdlp::find_js_runtime();
+        let selector = spec
+            .format
+            .clone()
+            .unwrap_or_else(|| ytdlp::format_selector(spec.max_height));
         let opts = ytdlp::Options {
-            format: spec.format.as_deref(),
+            format: Some(selector.as_str()),
             cookies: spec.cookies.as_deref(),
             user_agent: spec.user_agent.as_deref(),
             referer: spec.referer.as_deref(),

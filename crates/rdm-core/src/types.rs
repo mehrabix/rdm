@@ -186,6 +186,9 @@ pub struct DownloadSpec {
     /// Optional `yt-dlp` format selector (e.g. `bv*+ba/b`); `None` = best.
     #[serde(default)]
     pub format: Option<String>,
+    /// Preferred maximum video height for `yt-dlp` (e.g. `720`); `None` = best.
+    #[serde(default)]
+    pub max_height: Option<u32>,
 }
 
 impl DownloadSpec {
@@ -204,12 +207,19 @@ impl DownloadSpec {
             organize: false,
             kind: DownloadKind::File,
             format: None,
+            max_height: None,
         }
     }
 
     /// Resolve and download this URL with `yt-dlp`.
     pub fn ytdlp(mut self) -> Self {
         self.kind = DownloadKind::Ytdlp;
+        self
+    }
+
+    /// Ask for the best video no taller than `height` (0 = best available).
+    pub fn max_height(mut self, height: u32) -> Self {
+        self.max_height = (height > 0).then_some(height);
         self
     }
 

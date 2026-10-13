@@ -39,7 +39,12 @@ pub enum Request {
         connections: Option<u8>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         queue: Option<String>,
+        /// Preferred maximum video height (e.g. 720) for `yt-dlp`.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        height: Option<u32>,
     },
+    /// List the video heights a URL offers (for a quality picker).
+    Qualities { url: String },
 }
 
 /// The reply to a [`Request`].
@@ -50,6 +55,8 @@ pub struct Response {
     pub id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub heights: Option<Vec<u32>>,
 }
 
 impl Response {
@@ -58,6 +65,7 @@ impl Response {
             ok: true,
             id,
             error: None,
+            heights: None,
         }
     }
 
@@ -66,7 +74,13 @@ impl Response {
             ok: false,
             id: None,
             error: Some(message.into()),
+            heights: None,
         }
+    }
+
+    pub fn with_heights(mut self, heights: Vec<u32>) -> Self {
+        self.heights = Some(heights);
+        self
     }
 }
 
@@ -107,6 +121,7 @@ async fn add(
     user_agent: Option<String>,
     connections: Option<u8>,
     queue: Option<String>,
+    height: Option<u32>,
 ) -> Response {
     if !(url.starts_with("http://") || url.starts_with("https://")) {
         return Response::error(format!("unsupported URL (only http/https): {url}"));
@@ -123,6 +138,7 @@ async fn add(
         .unwrap_or_else(|| opts.queue.clone());
     // The engine decides the per-category folder after it probes.
     spec.organize = opts.organize_by_category;
+    spec.max_height = height.filter(|h| *h > 0);
 
     match manager.add(spec).await {
         Ok(id) => Response::ok(Some(id)),
@@ -133,6 +149,10 @@ async fn add(
 async fn dispatch(manager: &Arc<DownloadManager>, opts: &ServeOptions, req: Request) -> Response {
     match req {
         Request::Ping => Response::ok(None),
+        Request::Qualities { url } => match manager.qualities(&url).await {
+            Ok(heights) => Response::ok(None).with_heights(heights),
+            Err(err) => Response::error(err.to_string()),
+        },
         Request::Add {
             url,
             file_name,
@@ -141,9 +161,11 @@ async fn dispatch(manager: &Arc<DownloadManager>, opts: &ServeOptions, req: Requ
             user_agent,
             connections,
             queue,
+            height,
         } => {
             add(
                 manager, opts, url, file_name, referer, cookies, user_agent, connections, queue,
+                height,
             )
             .await
         }
@@ -272,7 +294,24 @@ mod tests {
                 user_agent: None,
                 connections: None,
                 queue: None,
+                height: None,
             }
+        );
+    }
+
+    #[test]
+    fn qualities_request_round_trips() {
+        let req: Request = serde_json::from_str(r#"{"action":"qualities","url":"https://x/v"}"#).unwrap();
+        assert_eq!(
+            req,
+            Request::Qualities {
+                url: "https://x/v".into()
+            }
+        );
+        let resp = Response::ok(None).with_heights(vec![1080, 720]);
+        assert_eq!(
+            serde_json::to_string(&resp).unwrap(),
+            r#"{"ok":true,"heights":[1080,720]}"#
         );
     }
 
@@ -324,6 +363,7 @@ mod tests {
                 user_agent: None,
                 connections: None,
                 queue: None,
+                height: None,
             },
         )
         .await

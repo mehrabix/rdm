@@ -44,24 +44,35 @@ fn opt_string(message: &Value, key: &str) -> Option<String> {
 
 /// Translate a browser message into an IPC request.
 fn to_request(message: &Value) -> Request {
-    if message.get("action").and_then(Value::as_str) == Some("ping") {
-        return Request::Ping;
-    }
-    Request::Add {
-        url: message
-            .get("url")
-            .and_then(Value::as_str)
-            .unwrap_or_default()
-            .to_string(),
-        file_name: opt_string(message, "file_name"),
-        referer: opt_string(message, "referer"),
-        cookies: opt_string(message, "cookies"),
-        user_agent: opt_string(message, "user_agent"),
-        connections: message
-            .get("connections")
-            .and_then(Value::as_u64)
-            .map(|n| n.min(32) as u8),
-        queue: opt_string(message, "queue"),
+    match message.get("action").and_then(Value::as_str) {
+        Some("ping") => Request::Ping,
+        Some("qualities") => Request::Qualities {
+            url: message
+                .get("url")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_string(),
+        },
+        _ => Request::Add {
+            url: message
+                .get("url")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_string(),
+            file_name: opt_string(message, "file_name"),
+            referer: opt_string(message, "referer"),
+            cookies: opt_string(message, "cookies"),
+            user_agent: opt_string(message, "user_agent"),
+            connections: message
+                .get("connections")
+                .and_then(Value::as_u64)
+                .map(|n| n.min(32) as u8),
+            queue: opt_string(message, "queue"),
+            height: message
+                .get("height")
+                .and_then(Value::as_u64)
+                .map(|n| n.min(4320) as u32),
+        },
     }
 }
 
@@ -170,7 +181,7 @@ mod tests {
                 assert_eq!(connections, Some(16));
                 assert!(file_name.is_none());
             }
-            Request::Ping => panic!("expected an Add request"),
+            Request::Ping | Request::Qualities { .. } => panic!("expected an Add request"),
         }
     }
 
