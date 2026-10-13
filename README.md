@@ -15,7 +15,19 @@ binary, no Electron, built on a headless engine you can test without a display.
 └────────────┴────────────────────────────────────────────────────┘
 ```
 
+- **Segmented downloads** — up to 32 parallel byte-range requests, written at
+  their own offsets, re-split live as the transfer runs.
+- **Real resume** — progress is checkpointed; restart the app and it continues.
+- **Video & streaming** — HLS (`.m3u8`) assembly and a bundled `yt-dlp` bridge,
+  with a **quality picker** for hundreds of sites.
+- **Browser integration** — send links and page media to RDM from Chrome, Edge,
+  Brave or Firefox, with a download badge on every video.
+- **Global and per-download speed limits**, named queues, and a tray menu.
+
 ## Install
+
+Pick one channel below. The app is `rdm` everywhere except Snap
+(`rust-download-manager`).
 
 ### Debian / Ubuntu (apt)
 
@@ -26,6 +38,9 @@ echo "deb [signed-by=/usr/share/keyrings/rdm.gpg] https://mehrabix.github.io/rdm
   | sudo tee /etc/apt/sources.list.d/rdm.list
 sudo apt update && sudo apt install rdm
 ```
+
+The `.deb` also installs the browser native-messaging host and its manifests, so
+the extension works without extra steps.
 
 > If `apt` complains that the key has an *unsupported filetype*, your apt is
 > strict about keyring format — pipe it through `gpg --dearmor`:
@@ -60,16 +75,19 @@ scoop install rdm
 sudo snap install rust-download-manager --edge
 ```
 
-Published to the *edge* channel while v0.1 stabilises; the app command is
+Published to the *edge* channel while it stabilises; the command is
 `rust-download-manager`.
 
 ### Direct download
 
 Grab a build from the [latest release](https://github.com/mehrabix/rdm/releases/latest):
 
-- **Linux** — `rdm-linux-x86_64.AppImage` (chmod +x and run), `.deb`, `.rpm`
-- **macOS** — `rdm-macos-arm64.dmg` or the zipped `RDM.app`
-- **Windows** — `rdm-windows-x86_64.msi`
+| Platform | Artifacts |
+|---|---|
+| Linux | `rdm-linux-x86_64.AppImage` (chmod +x and run), `rdm_*_amd64.deb`, `rdm-*.x86_64.rpm` |
+| macOS | `rdm-macos-arm64.dmg` or the zipped `RDM.app` |
+| Windows | `rdm-windows-x86_64.msi` |
+| Browser extension | `rdm-extension-chromium.zip`, `rdm-extension-chromium.crx`, `rdm-extension-firefox.xpi` |
 
 Every artifact ships a `.sha256` checksum.
 
@@ -84,19 +102,166 @@ Every artifact ships a `.sha256` checksum.
 See [docs/PACKAGING.md](docs/PACKAGING.md) for the full matrix and exactly what
 each channel is waiting on.
 
+## Quick start
+
+1. Launch **RDM**.
+2. **+ New** (or `Ctrl+N`) and paste a URL — the row appears immediately and
+   moves from *Queued* → *Probing* → *Downloading*; the file lands in your
+   Downloads folder.
+3. Watch it in the table: progress, smoothed speed, ETA, and a throughput graph.
+   Select a row for the detail panel — including a **per-download speed limit**.
+4. Pause/Resume any row, or **Remove** it. Right-click a row for the same
+   actions plus *Copy link* and *Open file/folder*.
+
+Files are organized into category folders (Video, Audio, Documents, Programs,
+Archives, Other) when **Organize by category** is on.
+
+## Everyday use
+
+| Task | How |
+|---|---|
+| Add a batch | Paste many URLs into the *New* dialog, one per line |
+| Named queues | Assign a download to a queue; each queue has its own limit and concurrency |
+| Global speed limit | Options → Downloads |
+| Per-download limit | Select the row → detail panel → speed limit |
+| Schedule | Options → Scheduler: allow downloads inside a daily time window |
+| Tray menu | Right-click the tray icon: live downloads with percentage, *Pause all*, *Resume all*, *Exit* |
+| Theme | Options → Appearance: Dark / Light / System |
+| Language | Options → Appearance — shipped: **en, es, fr, de, pt, ru, zh, fa**. The picker lists only languages that are actually translated; RTL layouts (Persian) switch automatically |
+
+Settings live in `~/.config/rdm/config.toml` (`%APPDATA%\rdm\config.toml` on
+Windows, `~/Library/Application Support/rdm/config.toml` on macOS).
+
+## Video downloads (YouTube & co.)
+
+RDM handles the easy cases natively and delegates the hard ones to
+[`yt-dlp`](https://github.com/yt-dlp/yt-dlp), which it drives for you.
+
+- **Direct video links** (`.mp4`, `.webm`, `.mkv`, …) download like any file.
+- **HLS streams** (`.m3u8`) are assembled: the master playlist is followed to the
+  highest-bandwidth variant, then the init and media segments are concatenated.
+- **Everything else** — YouTube, Vimeo, and the rest of `yt-dlp`'s supported
+  sites — is resolved by the bundled `yt-dlp` bridge. If a URL turns out to be an
+  HTML page instead of a file, RDM **never saves the page**; it re-routes to
+  `yt-dlp` instead.
+
+### Install the media tools (recommended)
+
+| Tool | Why | Install |
+|---|---|---|
+| `yt-dlp` | Resolves streaming sites | `pipx install yt-dlp` (or your package manager) |
+| `ffmpeg` | Merges separate video + audio tracks | `sudo apt install ffmpeg` |
+| `node` (or `deno`) | Solves YouTube's JS challenges | `sudo apt install nodejs` |
+
+`pipx`/`pip --user` installs (`~/.local/bin`) are preferred over distro packages
+— distro `yt-dlp` is often too old for YouTube, which is why RDM searches
+`~/.local/bin` first. If `yt-dlp` is missing, RDM fails the download with
+*"install yt-dlp"* rather than silently doing nothing.
+
+RDM passes `--remote-components ejs:github` whenever it finds a JS runtime, which
+is what makes YouTube's signature/`n` challenge solvable — without it you get
+*"Signature solving failed"* / *"The page needs to be reloaded"*.
+
+### Choosing quality
+
+Clicking **⬇ Download using RDM** on a page badge opens a menu: **Best quality**
+plus every resolution the site actually offers (1080p, 720p, 480p, …, from
+`yt-dlp -J`). Picking one downloads exactly that height; **Best quality** uses
+the `bv*+ba/b` selector. Ask for a height a site doesn't have and it falls back
+to the best available, so it never fails on a stale guess.
+
 ## Browser integration
 
-Right-click any link in Firefox or Chromium → **Download with RDM**, and the URL
-is handed to the running app over a local socket.
+The extension adds a right-click **Download with RDM** entry, a toolbar popup,
+and a dismissible badge over every video on the page.
 
-```bash
-scripts/install-browser-host.sh        # register the native-messaging host
-# then load browser-extension/ unpacked (see browser-extension/README.md)
-```
+1. **Install RDM** — the `.deb` already registers the native-messaging host.
+   From a tarball/AppImage, run once:
+   ```bash
+   scripts/install-browser-host.sh      # finds /usr/lib/rdm/rdm-native-host
+   ```
+2. **Load the extension**:
+   - **Chromium / Chrome / Edge / Brave** — `chrome://extensions` → enable
+     **Developer mode** → **Load unpacked** → pick `browser-extension/`. Or drag
+     the release's `rdm-extension-chromium.crx` onto `chrome://extensions`.
+     The Chromium release `.zip` is the same tree, for store upload.
+   - **Firefox** — `about:debugging#/runtime/this-firefox` → **Load Temporary
+     Add-on** → the release's `rdm-extension-firefox.xpi` (or
+     `manifest.firefox.json`).
+3. **Start RDM** — the extension talks to the running app over
+   `$XDG_RUNTIME_DIR/rdm.sock` (else `~/.local/share/rdm/rdm.sock`). The popup
+   shows **RDM not running** until the socket is up.
 
-The socket is `$XDG_RUNTIME_DIR/rdm.sock` (else `~/.local/share/rdm/rdm.sock`),
-accepts `http(s)` URLs only, and can be turned off under **Options → Browser**.
-The pieces: `browser-extension/`, `crates/rdm-native-host/`, and `rdm-core::ipc`.
+Using it:
+
+| Action | Result |
+|---|---|
+| Right-click a link → *Download with RDM* | Queues that URL |
+| Click the badge on a video | Opens the quality menu (see above) |
+| Badge **×** | Hides the badges everywhere; re-enable with the popup's *Video buttons* toggle |
+| Popup → *This page* | Sends the current page URL, forwarding your cookies |
+| Popup → per-item *Download* | Queues a sniffed `.m3u8`/`.mpd`/`.mp4` resource |
+
+The badges sit at 50% opacity and go fully opaque on hover, so they stay out of
+the way. Cookies are read **only** for the site you're downloading from, and the
+socket accepts `http(s)` URLs only — it can never be asked to run a command.
+
+## Troubleshooting
+
+**"Access to the specified native messaging host is forbidden."**
+The extension's ID isn't in the host manifest. The extension pins
+`gephlckdmpdhjmalobeogeglfiohahld` via `key`; the manifests in
+`/etc/opt/chrome/native-messaging-hosts/`, `/etc/chromium/native-messaging-hosts/`
+and `~/.config/<browser>/NativeMessagingHosts/` must allow the same ID. Re-run
+`scripts/install-browser-host.sh` and reload the extension.
+
+**The extension says "RDM not running".**
+RDM isn't up, so there's no socket. Start the app; the popup flips to
+**connected**.
+
+**A YouTube download fails with "The page needs to be reloaded" / "Signature solving failed".**
+`yt-dlp` is too old, or there's no JS runtime. Update it (`pipx upgrade yt-dlp`)
+and install `node`. RDM enables the EJS challenge solver automatically once a
+runtime is present.
+
+**The downloaded file is a `.php`/`.html` page instead of the video.**
+That's the probe seeing `text/html`. RDM re-routes these to `yt-dlp`; if it still
+fails, the detail panel shows `yt-dlp`'s exact error — read that first.
+
+**Constant popups, and the desktop feels busy on Wayland.**
+The clipboard monitor is the cause (each `wl-paste` call raises an `xdg_popup`
+surface). It is **off by default**; leave it off unless you need it
+(Options → Downloads).
+
+**RDM downloads HTML-looking names like `watch` with 0 B.**
+You're on a site that needs a real extractor — install `yt-dlp`/`ffmpeg` (above),
+then retry.
+
+**The app won't launch from the GNOME app grid, but `rdm` works in a terminal.**
+GNOME Shell's app cache is stale. Log out and back in, or refresh it:
+`update-desktop-database ~/.local/share/applications`.
+
+**A language change does nothing.**
+Only the eight shipped languages translate; anything else is reset to English on
+startup so the UI can't half-switch. Pick one from the list, then restart.
+
+## Status
+
+| Area | State |
+|---|---|
+| Engine: probe, segment, live dynamic re-segmentation, resume, cancel/pause, speed/ETA, global + per-download speed limit, named queues | ✅ |
+| UI: menu bar, toolbar, category rail, transfer table, right-click menu, options dialog, status bar, detail panel | ✅ |
+| Settings persisted to `~/.config/rdm/config.toml`; Dark/Light/System theme | ✅ |
+| Queue persistence + restore on launch, throughput graph | ✅ |
+| Automation: batch + clipboard import, category folders, duplicate detection, daily-window scheduler | ✅ |
+| Languages: en, es, fr, de, pt, ru, zh, fa — the picker lists exactly what translates | ✅ |
+| Distribution: apt, dnf/zypper, Homebrew, Scoop, Snap (edge), AppImage/`.dmg`/`.msi` installers | ✅ |
+| winget, AUR, Flathub, Chocolatey | ⬜ accounts/PRs pending |
+| Browser integration: link menu, page popup, video badges + cookies forwarding | ✅ |
+| Browser-extension packaging: `.zip` / signed `.crx` / `.xpi` in every release | ✅ |
+| Media grabber: HLS assembly ✅ + `yt-dlp` bridge ✅ with quality picker (DASH ⬜); site grabber ⬜ | 🟡 |
+
+The exhaustive IDM-parity matrix and roadmap: [masterplan §9–10](docs/MASTERPLAN.md#9-feature-parity-matrix-vs-idm).
 
 ## Build from source
 
@@ -116,7 +281,15 @@ pnpm dev                                       # dx serve (desktop)
 The engine alone needs no GUI dependencies:
 
 ```bash
-cargo test -p rdm-core
+cargo test -p rdm-core      # engine: unit + integration (real HTTP range server)
+cargo test -p rdm-native-host
+```
+
+Build installers and extension packages locally:
+
+```bash
+dx bundle --release                                   # AppImage / .app / .msi
+scripts/build-extension.sh dist ~/extension-key.pem   # .zip / .xpi (+ signed .crx)
 ```
 
 ## Why RDM
@@ -126,6 +299,8 @@ Most Linux download tools either do one stream well (`curl`, `wget`) or wrap
 
 - **Segmented downloads** — split a file into up to 32 byte-range requests and
   fetch them in parallel, then write each range at its own offset.
+- **Live re-segmentation** — a slow segment is split further while the transfer
+  runs, so one sluggish connection can't stall the whole file.
 - **Real resume** — partial progress is checkpointed to a JSON sidecar; kill the
   process and it picks up from the last byte.
 - **Live telemetry** — smoothed throughput (EWMA), ETA, and a throughput graph.
@@ -134,40 +309,24 @@ Most Linux download tools either do one stream well (`curl`, `wget`) or wrap
 - **Headless engine** — `rdm-core` has no GUI dependencies and is covered by
   unit + integration tests (a real HTTP range server, byte-for-byte assertions).
 
-## Status
-
-| Area | State |
-|---|---|
-| Engine: probe, segment, live dynamic re-segmentation, resume, cancel/pause, speed/ETA, global + per-download speed limit, named queues | ✅ |
-| UI: menu bar, toolbar, category rail, transfer table, right-click menu, options dialog, status bar, detail panel | ✅ |
-| Settings persisted to `~/.config/rdm/config.toml`; Dark/Light/System theme | ✅ |
-| Queue persistence + restore on launch, throughput graph | ✅ |
-| Automation: batch + clipboard import, category folders, duplicate detection, daily-window scheduler | ✅ |
-| Languages: en, es, fr, de, pt, ru, zh, fa — the picker lists exactly what translates | ✅ |
-| Distribution: apt, dnf/zypper, Homebrew, Scoop, Snap (edge), AppImage/`.dmg`/`.msi` installers | ✅ |
-| winget, AUR, Flathub, Chocolatey | ⬜ accounts/PRs pending |
-| Browser integration: "Download with RDM" link menu (Firefox + Chromium) | ✅ |
-| Media grabber: HLS assembly ✅ + `yt-dlp` bridge ✅ with quality picker (DASH ⬜); site grabber ⬜ | 🟡 |
-
-The exhaustive IDM-parity matrix and roadmap: [masterplan §9–10](docs/MASTERPLAN.md#9-feature-parity-matrix-vs-idm).
-
 ## Layout
 
 | Path | What |
 |---|---|
-| `crates/rdm-core/` | The engine: probing, segmentation, resume, queues, speed limiting. Pure Rust, no GUI. |
-| `crates/rdm-native-host/` | Browser native-messaging host: forwards links to a running RDM. |
-| `browser-extension/` | MV3 extension ("Download with RDM") for Firefox + Chromium. |
+| `crates/rdm-core/` | The engine: probing, segmentation, resume, queues, speed limiting, HLS, `yt-dlp` bridge, IPC. Pure Rust, no GUI. |
+| `crates/rdm-native-host/` | Browser native-messaging host: forwards links (and quality queries) to a running RDM. |
+| `browser-extension/` | MV3 extension: link menu, popup, video badges with the quality menu. |
 | `src/` | The Dioxus desktop app (`rdm`): `state.rs` bridges the engine to signals; `ui/` holds rust-ui style primitives; `components/` holds views. |
-| `packaging/` | Recipes for every package manager (deb, rpm, pacman, snap, flatpak, scoop, chocolatey, alpine, nix, winget, homebrew). |
+| `packaging/` | Recipes for every package manager, plus the native-host manifests. |
 | `locales/` | Translations: `translations.tsv` is the source of truth, `scripts/gen-locales.py` expands it. |
-| `scripts/make-icon.sh` | Builds the icon set from `assets/icon-source.png`. |
+| `scripts/` | `build-extension.sh`, `install-browser-host.sh`, `make-icon.sh`. |
 | `docs/` | MASTERPLAN, PACKAGING, RELEASING. |
 
 ## How RDM downloads a file
 
 1. `probe()` sends `GET` with `Range: bytes=0-0` to learn the size and whether
-   ranges are supported — one round trip.
+   ranges are supported — one round trip. It runs **in the background**, so the
+   row appears instantly.
 2. `segment::plan(total, connections)` tiles the file into contiguous ranges.
 3. Each range is fetched as a tokio task; writes go to the right offset of a
    preallocated file, so segments never collide.
@@ -180,6 +339,7 @@ The exhaustive IDM-parity matrix and roadmap: [masterplan §9–10](docs/MASTERP
 - [Dioxus](https://dioxuslabs.com) 0.7 — Rust desktop UI
 - [rust-ui](https://rust-ui.com) — shadcn-inspired component registry (Tailwind v4 + `tw_merge`)
 - [tokio](https://tokio.rs) + [reqwest](https://github.com/seanmonstar/reqwest) — async I/O
+- [yt-dlp](https://github.com/yt-dlp/yt-dlp) — streaming-site extraction (invoked, not bundled)
 
 ## License
 
