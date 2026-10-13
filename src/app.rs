@@ -37,8 +37,17 @@ fn apply_theme(mode: &str) {
 
 #[component]
 pub fn App() -> Element {
-    // Settings first: the engine sizes itself from them on first use.
-    let settings = use_signal(|| settings::boot().clone());
+    // Settings first: the engine sizes itself from them on first use. A language
+    // we no longer ship (e.g. one picked before its catalog existed) is reset to
+    // English so the picker and the rendered UI agree.
+    let settings = use_signal(|| {
+        let mut boot = settings::boot().clone();
+        if !crate::i18n::is_shipped(&boot.language) {
+            boot.language = "en".to_string();
+            settings::save(&boot);
+        }
+        boot
+    });
     provide_settings(settings);
     let i18n = use_i18n();
 

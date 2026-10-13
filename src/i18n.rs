@@ -85,6 +85,11 @@ fn load(json: &str) -> HashMap<String, String> {
     serde_json::from_str(json).unwrap_or_default()
 }
 
+/// Whether `code` ships a catalog, and may therefore be selected.
+pub fn is_shipped(code: &str) -> bool {
+    LOCALES.iter().any(|(locale, _)| *locale == code)
+}
+
 /// The `(code, endonym)` pairs worth offering: those with a catalog, so every
 /// selectable language actually translates the UI. `LANGUAGES` keeps the full
 /// IDM list for when more translations land.
@@ -92,7 +97,7 @@ pub fn available_languages() -> Vec<(&'static str, &'static str)> {
     LANGUAGES
         .iter()
         .copied()
-        .filter(|(code, _)| LOCALES.iter().any(|(locale, _)| locale == code))
+        .filter(|(code, _)| is_shipped(code))
         .collect()
 }
 
@@ -219,5 +224,14 @@ mod tests {
         }
         assert!(!RTL.contains(&"en"));
         assert!(!RTL.contains(&"de"));
+    }
+
+    #[test]
+    fn shipped_languages_are_the_registered_catalogs() {
+        for code in ["en", "es", "fr", "de", "pt", "ru", "zh"] {
+            assert!(is_shipped(code), "`{code}` should ship a catalog");
+        }
+        assert!(!is_shipped("fa"), "`fa` has no catalog yet");
+        assert!(!is_shipped("zz"));
     }
 }
