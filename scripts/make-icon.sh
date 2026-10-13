@@ -64,7 +64,7 @@ done
 # 4. desktop entry (GNOME/Wayland matches the icon through this, not the toolkit)
 APP_DIR="$HOME/.local/share/applications"
 mkdir -p "$APP_DIR"
-EXEC_PATH="${RDM_EXEC:-$ROOT/target/dx/rdm/debug/linux/app/rdm}"
+EXEC_PATH="${RDM_EXEC:-rdm}"
 cat > "$APP_DIR/rdm.desktop" <<EOF
 [Desktop Entry]
 Type=Application

@@ -312,6 +312,19 @@ impl DownloadManager {
         let dir = spec.output_dir.clone();
         tokio::fs::create_dir_all(&dir).await?;
 
+        // Duplicate detection: the same URL already queued (from the UI, the
+        // clipboard monitor or the browser) returns the existing id rather than
+        // creating another row.
+        if let Some(existing) = self
+            .tasks
+            .read()
+            .await
+            .values()
+            .find(|task| task.spec.url == spec.url)
+        {
+            return Ok(existing.id.clone());
+        }
+
         // Auto-detect HLS by extension so every entry point (UI, clipboard, IPC)
         // benefits without the caller having to say so.
         if spec.kind == DownloadKind::File && media::is_hls_url(&spec.url) {

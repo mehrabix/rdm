@@ -250,18 +250,14 @@ impl Downloads {
         engine().add(spec).await.map(|_| ())
     }
 
-    /// Id of an existing task for `url` that is not failed/cancelled.
+    /// Id of an existing task for `url`, whatever its state. Used to avoid
+    /// queuing the same URL twice (the clipboard monitor can see a URL more than
+    /// once as the clipboard changes).
     fn find_by_url(&self, url: &str) -> Option<String> {
         self.tasks
             .read()
             .iter()
-            .find(|task| {
-                task.spec.url == url
-                    && !matches!(
-                        task.status,
-                        DownloadStatus::Failed | DownloadStatus::Cancelled
-                    )
-            })
+            .find(|task| task.spec.url == url)
             .map(|task| task.id.clone())
     }
 
@@ -397,21 +393,59 @@ fn set<T: 'static>(mut signal: Signal<T>, value: T) {
     signal.set(value);
 }
 
-/// Read text from the system clipboard (Wayland first, then X11). Empty string
-/// when neither tool is available.
+/// Read text from the system clipboard (Wayland first, then X11), with a hard
+/// timeout so a stuck helper can never wedge the app. Empty string when neither
+/// tool is available.
 pub fn clipboard_text() -> String {
     let readers: [(&str, &[&str]); 2] = [
         ("wl-paste", &["--no-newline"]),
         ("xclip", &["-selection", "clipboard", "-o"]),
     ];
     for (cmd, args) in readers {
-        if let Ok(output) = std::process::Command::new(cmd).args(args).output() {
-            if output.status.success() {
-                return String::from_utf8_lossy(&output.stdout).into_owned();
-            }
+        if let Some(text) = run_capture(cmd, args, std::time::Duration::from_millis(1500)) {
+            return text;
         }
     }
     String::new()
+}
+
+/// Run a command capturing stdout, killing it if it outlives `timeout`.
+fn run_capture(cmd: &str, args: &[&str], timeout: std::time::Duration) -> Option<String> {
+    use std::io::Read;
+    use std::process::{Command, Stdio};
+
+    let mut child = Command::new(cmd)
+        .args(args)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .ok()?;
+
+    let start = std::time::Instant::now();
+    loop {
+        match child.try_wait() {
+            Ok(Some(status)) => {
+                if !status.success() {
+                    return None;
+                }
+                let mut text = String::new();
+                if let Some(mut out) = child.stdout.take() {
+                    let _ = out.read_to_string(&mut text);
+                }
+                return Some(text);
+            }
+            Ok(None) => {
+                if start.elapsed() > timeout {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    return None;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(50));
+            }
+            Err(_) => return None,
+        }
+    }
 }
 
 pub fn file_name(task: &DownloadTask) -> String {
