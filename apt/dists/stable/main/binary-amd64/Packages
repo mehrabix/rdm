@@ -1,0 +1,18 @@
+Package: rdm
+Version: 0.1.0
+Architecture: amd64
+Maintainer: mehrabix <mehrabi@post.com>
+Depends: libwebkit2gtk-4.1-0, libgtk-3-0, libayatana-appindicator3-1, librsvg2-2
+Filename: pool/main/rdm_0.1.0_amd64.deb
+Size: 3936568
+MD5sum: 64081d38c38e03a66b36e5baadedcd3a
+SHA1: cce1b5a77085361001fdbd73838768998d4ecdac
+SHA256: 559a17ce462d71897ece4d88a55c423d6a68811016a19c3ac9ca31ed4e90e829
+Section: net
+Priority: optional
+Homepage: https://github.com/mehrabix/rdm
+Description: Rust Download Manager
+ A fast, resumable, multi-connection download manager for Linux, Windows and
+ macOS. Splits a file into parallel range requests, resumes after interruption,
+ and integrates with the desktop.
+
