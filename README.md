@@ -15,6 +15,84 @@ binary, no Electron, built on a headless engine you can test without a display.
 └────────────┴────────────────────────────────────────────────────┘
 ```
 
+## Install
+
+### Debian / Ubuntu (apt)
+
+```bash
+curl -fsSL https://mehrabix.github.io/rdm/rdm.gpg \
+  | sudo tee /usr/share/keyrings/rdm.gpg >/dev/null
+echo "deb [signed-by=/usr/share/keyrings/rdm.gpg] https://mehrabix.github.io/rdm/apt stable main" \
+  | sudo tee /etc/apt/sources.list.d/rdm.list
+sudo apt update && sudo apt install rdm
+```
+
+> If `apt` complains that the key has an *unsupported filetype*, your apt is
+> strict about keyring format — pipe it through `gpg --dearmor`:
+> `curl -fsSL …/rdm.gpg | gpg --dearmor | sudo tee /usr/share/keyrings/rdm.gpg >/dev/null`
+
+### Fedora / RHEL / openSUSE (dnf / zypper)
+
+```bash
+sudo curl -fsSL https://mehrabix.github.io/rdm/rdm.asc \
+  -o /etc/pki/rpm-gpg/RPM-GPG-KEY-rdm
+sudo dnf config-manager --add-repo https://mehrabix.github.io/rdm/rpm
+sudo dnf install rdm
+```
+
+### macOS (Homebrew)
+
+```bash
+brew tap mehrabix/rdm
+brew install --cask rdm        # installs Rdm.app
+```
+
+### Windows (Scoop)
+
+```powershell
+scoop bucket add mehrabix https://github.com/mehrabix/scoop-bucket
+scoop install rdm
+```
+
+### Direct download
+
+Grab a build from the [latest release](https://github.com/mehrabix/rdm/releases/latest):
+`.deb`, `.rpm`, and per-platform archives (`.tar.gz` / `.zip`) with `.sha256`
+checksums.
+
+### Not yet available
+
+| Channel | Status |
+|---|---|
+| winget | manifests written, submission PR pending |
+| Arch (AUR) | `PKGBUILD` written, needs an AUR SSH key |
+| Snap / Flathub / Chocolatey | recipes written, need store accounts |
+| AppImage / `.dmg` / `.msi` | blocked on the bundler's strip step |
+
+See [docs/PACKAGING.md](docs/PACKAGING.md) for the full matrix and exactly what
+each channel is waiting on.
+
+## Build from source
+
+Prerequisites (Debian/Ubuntu shown; the full list is in
+[masterplan §12](docs/MASTERPLAN.md#12-build--run)):
+
+```bash
+sudo apt install -y libwebkit2gtk-4.1-dev libxdo-dev lld \
+  libssl-dev libayatana-appindicator3-dev librsvg2-dev
+
+curl https://sh.rustup.rs -sSf | sh            # Rust
+curl -sSL https://dioxus.dev/install.sh | bash # dx (Dioxus CLI)
+pnpm install                                   # Tailwind tooling
+pnpm dev                                       # dx serve (desktop)
+```
+
+The engine alone needs no GUI dependencies:
+
+```bash
+cargo test -p rdm-core
+```
+
 ## Why RDM
 
 Most Linux download tools either do one stream well (`curl`, `wget`) or wrap
@@ -24,66 +102,39 @@ Most Linux download tools either do one stream well (`curl`, `wget`) or wrap
   fetch them in parallel, then write each range at its own offset.
 - **Real resume** — partial progress is checkpointed to a JSON sidecar; kill the
   process and it picks up from the last byte.
-- **Live telemetry** — smoothed throughput (EWMA) and ETA, plus a per-connection
-  visualization in the UI.
-- **Graceful fallback** — if a server doesn't support ranges, it silently
-  degrades to a single stream instead of failing.
-- **Headless engine** — the whole engine (`rdm-core`) has no GUI dependencies and
-  is covered by unit + integration tests.
+- **Live telemetry** — smoothed throughput (EWMA), ETA, and a throughput graph.
+- **Graceful fallback** — if a server doesn't support ranges, it degrades to a
+  single stream instead of failing.
+- **Headless engine** — `rdm-core` has no GUI dependencies and is covered by
+  unit + integration tests (a real HTTP range server, byte-for-byte assertions).
 
 ## Status
 
-**Phase 0 — foundation.** The engine works end to end; the desktop UI is a
-functional shell. See [`docs/MASTERPLAN.md`](docs/MASTERPLAN.md) for the full
-feature matrix and roadmap.
-
 | Area | State |
 |---|---|
-| Engine: probe, segment, resume, cancel/pause, speed/ETA | ✅ |
-| UI: menu bar, toolbar, category rail, transfer table, right-click menu, options dialog, status bar | ✅ |
-| Settings (persisted to `~/.config/rdm/config.toml`), Dark/Light/System theme, language switching (i18n) | ✅ |
-| App icon (custom crab artwork from `assets/icon-source.png`, via `scripts/make-icon.sh`) and system tray | ✅ |
-| Global speed limiter, queue persistence + restore on launch, throughput graph, per-download detail panel | ✅ |
-| Live dynamic segmentation, per-download speed limit | 🚧 Phase 1 |
-| Batch import, clipboard import, category folders, duplicate detection, daily-window scheduler | ✅ |
-| Named queues + per-queue concurrency | ✅ |
-| Drag-and-drop capture | ⬜ Phase 2 |
-| Browser integration (extension + native host) | ⬜ Phase 3 |
-| Media grabber (HLS/DASH), site grabber | ⬜ Phase 4 |
-| Notifications, packaging (`.deb`/AppImage/Flatpak) | ⬜ Phase 5 |
+| Engine: probe, segment, resume, cancel/pause, speed/ETA, speed limiter, named queues | ✅ |
+| UI: menu bar, toolbar, category rail, transfer table, right-click menu, options dialog, status bar, detail panel | ✅ |
+| Settings persisted to `~/.config/rdm/config.toml`; Dark/Light/System theme | ✅ |
+| Queue persistence + restore on launch, throughput graph | ✅ |
+| Automation: batch + clipboard import, category folders, duplicate detection, daily-window scheduler | ✅ |
+| Languages: 7 translated (en, es, fr, de, pt, ru, zh); ~34 listed, others fall back to English | 🟡 |
+| Distribution: apt, dnf/zypper, Homebrew, Scoop | ✅ |
+| winget, AUR, Snap, Flathub, Chocolatey | ⬜ accounts/PRs pending |
+| Live dynamic segmentation, per-download speed limit | ⬜ |
+| Browser integration, media grabber, site grabber | ⬜ Phases 3–4 |
 
-The full, exhaustive IDM feature matrix and roadmap live in the
-[masterplan §9–10](docs/MASTERPLAN.md#9-feature-parity-matrix-vs-idm).
-
-## Quick start
-
-Prerequisites (Debian/Ubuntu/Arch/Fedora) and the Dioxus CLI are listed in the
-[masterplan §12](docs/MASTERPLAN.md#12-build--run). In short, for Ubuntu:
-
-```bash
-sudo apt install -y libwebkit2gtk-4.1-dev libxdo-dev lld \
-  libssl-dev libayatana-appindicator3-dev librsvg2-dev
-
-curl https://sh.rustup.rs -sSf | sh           # Rust
-curl -sSL https://dioxus.dev/install.sh | bash # dx (Dioxus CLI)
-pnpm install                                   # Tailwind tooling
-pnpm dev                                       # dx serve (desktop)
-```
-
-### Engine only (no GUI dependencies)
-
-```bash
-cargo test -p rdm-core
-```
+The exhaustive IDM-parity matrix and roadmap: [masterplan §9–10](docs/MASTERPLAN.md#9-feature-parity-matrix-vs-idm).
 
 ## Layout
 
 | Path | What |
 |---|---|
-| `crates/rdm-core/` | The engine: HTTP probing, segmentation, resume, scheduling, speed. Pure Rust, no GUI. |
+| `crates/rdm-core/` | The engine: probing, segmentation, resume, queues, speed limiting. Pure Rust, no GUI. |
 | `src/` | The Dioxus desktop app (`rdm`): `state.rs` bridges the engine to signals; `ui/` holds rust-ui style primitives; `components/` holds views. |
-| `tailwind.css` | Tailwind v4 entry; `dx` compiles it to `assets/tailwind.css`. |
-| `docs/MASTERPLAN.md` | Vision, architecture, feature parity, roadmap. |
+| `packaging/` | Recipes for every package manager (deb, rpm, pacman, snap, flatpak, scoop, chocolatey, alpine, nix, winget, homebrew). |
+| `locales/` | Translations: `translations.tsv` is the source of truth, `scripts/gen-locales.py` expands it. |
+| `scripts/make-icon.sh` | Builds the icon set from `assets/icon-source.png`. |
+| `docs/` | MASTERPLAN, PACKAGING, RELEASING. |
 
 ## How RDM downloads a file
 
