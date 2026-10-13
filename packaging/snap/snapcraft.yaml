@@ -7,7 +7,7 @@
 # SNAPCRAFT_STORE_CREDENTIALS (from `snapcraft export-login`).
 name: rust-download-manager
 base: core24
-version: "0.4.0"
+version: "0.5.0"
 summary: Fast, resumable, multi-connection download manager
 description: |
   RDM (Rust Download Manager) splits a file into parallel HTTP range requests,

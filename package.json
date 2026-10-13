@@ -1,8 +1,8 @@
 {
   "name": "rdm",
   "private": true,
-  "version": "0.4.0",
-  "description": "RDM — Rust Download Manager (Tailwind tooling for the Dioxus desktop app).",
+  "version": "0.5.0",
+  "description": "RDM \u2014 Rust Download Manager (Tailwind tooling for the Dioxus desktop app).",
   "scripts": {
     "dev": "dx serve",
     "desktop": "dx serve --desktop",
