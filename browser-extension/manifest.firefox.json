@@ -1,10 +1,24 @@
 {
   "manifest_version": 3,
   "name": "RDM — Download with RDM",
-  "version": "0.1.0",
-  "description": "Right-click a link to download it with RDM (Rust Download Manager).",
+  "version": "0.2.0",
+  "description": "Send links and page media to RDM (Rust Download Manager) — right-click, or the toolbar button.",
   "background": { "scripts": ["background.js"] },
-  "permissions": ["nativeMessaging", "contextMenus"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "RDM",
+    "default_icon": { "128": "icons/icon-128.png" }
+  },
+  "permissions": ["nativeMessaging", "contextMenus", "storage", "notifications", "activeTab", "<all_urls>"],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle",
+      "all_frames": true
+    }
+  ],
   "icons": { "128": "icons/icon-128.png" },
   "browser_specific_settings": {
     "gecko": {

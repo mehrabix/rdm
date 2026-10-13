@@ -1,0 +1,65 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      body {
+        width: 320px;
+        margin: 0;
+        font: 13px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+        color: #18181b;
+        background: #fff;
+      }
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 12px;
+        border-bottom: 1px solid #e4e4e7;
+      }
+      header strong { font-size: 14px; }
+      #status { font-size: 12px; }
+      #status.ok { color: #16a34a; }
+      #status.bad { color: #dc2626; }
+      ul { list-style: none; margin: 0; padding: 4px; max-height: 320px; overflow-y: auto; }
+      li {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 8px;
+        border-radius: 6px;
+      }
+      li:hover { background: #f4f4f5; }
+      li .name {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      li.empty { color: #71717a; }
+      button {
+        font: inherit;
+        padding: 3px 10px;
+        color: #fff;
+        background: #2563eb;
+        border: 0;
+        border-radius: 6px;
+        cursor: pointer;
+      }
+      button.secondary { color: #18181b; background: #f4f4f5; }
+      footer { padding: 8px 12px; border-top: 1px solid #e4e4e7; text-align: right; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <strong>RDM</strong>
+      <span id="status">checking…</span>
+    </header>
+    <ul id="media"></ul>
+    <footer>
+      <button id="refresh" class="secondary">Refresh</button>
+    </footer>
+    <script src="popup.js"></script>
+  </body>
+</html>

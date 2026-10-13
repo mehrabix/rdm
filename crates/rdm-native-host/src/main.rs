@@ -44,6 +44,9 @@ fn opt_string(message: &Value, key: &str) -> Option<String> {
 
 /// Translate a browser message into an IPC request.
 fn to_request(message: &Value) -> Request {
+    if message.get("action").and_then(Value::as_str) == Some("ping") {
+        return Request::Ping;
+    }
     Request::Add {
         url: message
             .get("url")
@@ -87,7 +90,6 @@ fn handle(runtime: &tokio::runtime::Runtime, message: &Value) -> Value {
             return error_value("only http(s) URLs are supported");
         }
     }
-
     match runtime.block_on(ipc::request(&ipc::default_socket_path(), &request)) {
         Ok(resp) => response_value(resp),
         Err(err) => error_value(format!("RDM is not running ({err})")),

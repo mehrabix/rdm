@@ -1,0 +1,20 @@
+.rdm-badge {
+  position: absolute !important;
+  top: 8px;
+  left: 8px;
+  z-index: 2147483647;
+  margin: 0;
+  padding: 2px 8px;
+  font: 600 12px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: #fff;
+  background: rgba(37, 99, 235, 0.9);
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+  opacity: 0.85;
+  transition: opacity 0.15s ease;
+}
+
+.rdm-badge:hover {
+  opacity: 1;
+}
