@@ -90,8 +90,13 @@ function dismissBadges() {
 
 // ---- quality menu ----------------------------------------------------------
 
+let openMenuElement = null;
+
 function closeMenus() {
-  document.querySelectorAll(".rdm-menu").forEach((el) => el.remove());
+  if (openMenuElement) {
+    openMenuElement.remove();
+    openMenuElement = null;
+  }
   document.removeEventListener("click", onDocumentClick);
   document.removeEventListener("keydown", onKeyDown);
 }
@@ -106,12 +111,18 @@ function onKeyDown(event) {
 }
 
 function openMenu(anchor, url) {
-  const hadMenu = anchor.querySelector(".rdm-menu");
+  const wasOpen = openMenuElement !== null;
   closeMenus();
-  if (hadMenu) return; // clicking again closes it
+  if (wasOpen) return; // clicking the badge again closes it
 
+  const rect = anchor.getBoundingClientRect();
   const menu = document.createElement("div");
   menu.className = "rdm-menu";
+  // Anchored to the page, not the badge: no ancestor `overflow` can clip it.
+  menu.style.top = `${Math.round(rect.bottom + 4)}px`;
+  menu.style.left = `${Math.round(rect.left)}px`;
+  menu.style.minWidth = `${Math.round(rect.width)}px`;
+  openMenuElement = menu;
 
   const addItem = (label, height) => {
     const item = document.createElement("button");
@@ -136,7 +147,8 @@ function openMenu(anchor, url) {
   note.className = "rdm-menu-note";
   note.textContent = "Loading qualities…";
   menu.appendChild(note);
-  anchor.appendChild(menu);
+
+  document.body.appendChild(menu);
 
   api.runtime.sendMessage({ type: "rdm:qualities", url }, (res) => {
     const err = api.runtime.lastError;
