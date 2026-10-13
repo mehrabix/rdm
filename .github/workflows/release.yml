@@ -25,6 +25,23 @@ jobs:
           - os: macos-latest
             target: macos-arm64
     runs-on: ${{ matrix.os }}
+
+    # Optional signing credentials. They surface as the `env` context, which is
+    # what step-level `if:` conditions are allowed to read (the `secrets`
+    # context is not available there). When a secret is unset the value is empty
+    # and the corresponding signing step is skipped.
+    env:
+      APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+      APPLE_SIGN_IDENTITY: ${{ secrets.APPLE_SIGN_IDENTITY }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+      WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+      GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+      GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+
     steps:
       - uses: actions/checkout@v4
 
@@ -54,8 +71,8 @@ jobs:
           node-version: 22
       - run: pnpm install --no-frozen-lockfile
 
-      # Regenerate the icon set so bundles pick up the current artwork. Requires
-      # ImageMagick, which is preinstalled on the hosted runners.
+      # Regenerate the icon set so bundles pick up the current artwork.
+      # ImageMagick is preinstalled on the hosted runners.
       - name: Build icon set
         if: runner.os == 'Linux'
         run: bash scripts/make-icon.sh
@@ -64,12 +81,8 @@ jobs:
         run: dx bundle --desktop --release
 
       # ---- macOS: sign + notarise -------------------------------------------
-      # Runs only when the APPLE_* secrets exist. See docs/RELEASING.md.
       - name: Import Apple signing certificate
-        if: runner.os == 'macOS' && secrets.APPLE_CERTIFICATE != ''
-        env:
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        if: runner.os == 'macOS' && env.APPLE_CERTIFICATE != ''
         run: |
           echo "$APPLE_CERTIFICATE" | base64 --decode > certificate.p12
           security create-keychain -p actions build.keychain
@@ -81,17 +94,12 @@ jobs:
           rm certificate.p12
 
       - name: Sign + notarise (macOS)
-        if: runner.os == 'macOS' && secrets.APPLE_CERTIFICATE != ''
-        env:
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          SIGN_IDENTITY: ${{ secrets.APPLE_SIGN_IDENTITY }}
+        if: runner.os == 'macOS' && env.APPLE_CERTIFICATE != ''
         run: |
           APP=$(find target/dx -maxdepth 6 -name '*.app' -type d | head -1)
           if [ -n "$APP" ]; then
             codesign --deep --force --options runtime --timestamp \
-              --sign "$SIGN_IDENTITY" "$APP"
+              --sign "$APPLE_SIGN_IDENTITY" "$APP"
             ditto -c -k --keepParent "$APP" rdm-macos.zip
             xcrun notarytool submit rdm-macos.zip \
               --apple-id "$APPLE_ID" --password "$APPLE_PASSWORD" \
@@ -101,11 +109,8 @@ jobs:
 
       # ---- Windows: Authenticode -------------------------------------------
       - name: Sign (Windows)
-        if: runner.os == 'Windows' && secrets.WINDOWS_CERTIFICATE != ''
+        if: runner.os == 'Windows' && env.WINDOWS_CERTIFICATE != ''
         shell: pwsh
-        env:
-          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
-          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
         run: |
           [IO.File]::WriteAllBytes("cert.pfx",
             [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE))
@@ -141,10 +146,7 @@ jobs:
 
       # ---- Linux: sign the checksums with a GPG key -------------------------
       - name: Sign checksums (Linux)
-        if: runner.os == 'Linux' && secrets.GPG_PRIVATE_KEY != ''
-        env:
-          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
-          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        if: runner.os == 'Linux' && env.GPG_PRIVATE_KEY != ''
         run: |
           echo "$GPG_PRIVATE_KEY" | gpg --batch --import
           gpg --batch --yes --pinentry-mode loopback --passphrase "$GPG_PASSPHRASE" \
