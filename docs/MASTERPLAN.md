@@ -339,7 +339,7 @@ aim at real parity rather than a guess at what IDM does.
 | Drag & drop links in / downloaded files out | ⬜ Phase 2 |
 | Site spider & grabber (filters, subsets, offline browsing) | ⬜ Phase 4 |
 | Scheduled / periodic grabber projects | ⬜ Phase 4 |
-| Media grabber: HLS assembly ✅; yt-dlp bridge ✅; DASH ⬜ | 🟡 |
+| Media grabber: HLS assembly ✅; yt-dlp bridge ✅ + quality picker ✅; DASH ⬜ | 🟡 |
 | `yt-dlp` bridge for streaming sites | ✅ |
 
 ### Completing a download
