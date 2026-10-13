@@ -139,6 +139,23 @@ the three registration manifests — `/etc/opt/chrome/native-messaging-hosts/`,
 extension itself lives in `browser-extension/` (loaded unpacked; store
 submission is a later step).
 
+## Browser-extension packages
+
+`release.yml` also builds, from `browser-extension/`:
+
+| Artifact | What |
+|---|---|
+| `rdm-extension-chromium.zip` | the unpacked tree (Load unpacked / Chrome Web Store upload) |
+| `rdm-extension-chromium.crx` | a **signed CRX3** (needs the signing key secret) |
+| `rdm-extension-firefox.xpi` / `.zip` | the Firefox add-on (its manifest swapped in) |
+
+`scripts/build-extension.sh <out-dir> [key.pem]` builds them locally. The `.crx`
+is only produced when the signing key is present; its public half is pinned in
+`browser-extension/manifest.json` (`key`) so the extension id is stable
+(`gephlckdmpdhjmalobeogeglfiohahld`) — the same id the native-host manifests
+allow. Store the private key as the `CHROME_EXTENSION_KEY` secret (base64 of the
+PEM); without it the release ships `.zip`/`.xpi` only.
+
 ## Signing
 
 See [RELEASING.md](./RELEASING.md). Nothing is signed today: no Apple

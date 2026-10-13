@@ -28,7 +28,7 @@ scripts/install-browser-host.sh /usr/lib/rdm/rdm-native-host
 
 **Chromium / Chrome** — `chrome://extensions` → enable **Developer mode** →
 **Load unpacked** → pick this directory. The `manifest.json` pins a stable id
-(`pamjnfmkehmmabkofbhpkkpbahikakfe`) via `key`, so the host manifest matches
+(`gephlckdmpdhjmalobeogeglfiohahld`) via `key`, so the host manifest matches
 without editing.
 
 **Firefox** — load `manifest.firefox.json` as a temporary add-on via

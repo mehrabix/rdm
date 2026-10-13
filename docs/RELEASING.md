@@ -38,6 +38,19 @@ present, so the workflow runs — and produces unsigned artifacts — until you 
 the credentials below. There is nothing to change in the YAML; add the secrets
 and the same steps start signing.
 
+### Browser extension — CRX3 signing
+
+The `rdm-extension-chromium.crx` is signed with Chrome's packer, using the key
+whose public half is pinned in `browser-extension/manifest.json`. Add it to the
+repository secrets:
+
+| Secret | What it is |
+|---|---|
+| `CHROME_EXTENSION_KEY` | base64 of the extension's `key.pem` (RSA) |
+
+Without it, the release still ships `rdm-extension-chromium.zip` and
+`rdm-extension-firefox.xpi`/`.zip`.
+
 ### macOS — Developer ID + notarisation
 
 Requires a paid Apple Developer account.

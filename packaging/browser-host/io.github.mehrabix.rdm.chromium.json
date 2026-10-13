@@ -3,5 +3,5 @@
   "description": "RDM (Rust Download Manager) native messaging host",
   "path": "@HOST@",
   "type": "stdio",
-  "allowed_origins": ["chrome-extension://pamjnfmkehmmabkofbhpkkpbahikakfe/"]
+  "allowed_origins": ["chrome-extension://gephlckdmpdhjmalobeogeglfiohahld/"]
 }

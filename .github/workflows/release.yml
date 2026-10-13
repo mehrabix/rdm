@@ -102,6 +102,20 @@ jobs:
           cargo build --release -p rdm-native-host
           install -m755 target/release/rdm-native-host "rdm-${{ matrix.target }}-native-host"
 
+      # Browser-extension packages (.zip / .xpi, plus a signed .crx when the
+      # signing key secret exists). Platform-independent, so Linux builds them.
+      - name: Build browser-extension packages (Linux)
+        if: runner.os == 'Linux'
+        env:
+          CHROME_EXTENSION_KEY: ${{ secrets.CHROME_EXTENSION_KEY }}
+        run: |
+          KEY=""
+          if [ -n "${CHROME_EXTENSION_KEY:-}" ]; then
+            printf '%s' "$CHROME_EXTENSION_KEY" | base64 -d > "$RUNNER_TEMP/ext-key.pem"
+            KEY="$RUNNER_TEMP/ext-key.pem"
+          fi
+          bash scripts/build-extension.sh . "$KEY"
+
       # ---- macOS: sign + notarise -------------------------------------------
       - name: Import Apple signing certificate
         if: runner.os == 'macOS' && env.APPLE_SIGNING == 'true'
@@ -239,6 +253,7 @@ jobs:
           files: |
             rdm-${{ matrix.target }}.*
             rdm-${{ matrix.target }}-native-host
+            rdm-extension-*
             rdm_*.deb
             rdm-*.rpm
             rdm-deb.sha256

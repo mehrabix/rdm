@@ -3,7 +3,7 @@
   "name": "RDM — Download with RDM",
   "version": "0.2.3",
   "description": "Send links and page media to RDM (Rust Download Manager) — right-click, or the toolbar button.",
-  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0RlfZ0H9CoIemXtlpQYU5HZ6gaKNY0fcXThUa1+EaFXBK+SBWeWY3VEjYGGxxfXLFiQVl8DO9f++OfcDvGD3N6OjP8X2qn1JSsXTAHy5yuLnKpSezJd5FdeVIXsiqNvdUT8AGGj2Gpq7ckJ6IOEvLYlZ6IKiiVDjiGCNO3WUJ2LPQqCCHAjc1DNYl8fhf7jMjNGz4UsOYGxfBz9ttkhHo77L+eDV3/NpYWv30YUHrlrGoQEIe2XT9MU4h/lqt2R92M40SUnNvMpFW8yjXk7OV2qgjUqP5lm6JkRgSQUq94s3j2sTLwGZWqcsimJretT4+r9K79LoPeunFTb3iX2L6wIDAQAB",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsu+YneMq+n6LX15lxL0WyoB/5mrV2SZ/Zl8hGAsLj2ke5z/4ZyT0SNCNCZ/HDsg742Ij7u0z/is2q3tGDjSt/QCGh49inBE3PFP9V6ugMh5oRJYZxu27X/qdWENg1Vlkw9eQwzet+rnbuwoS+L/xn1nDJUcGob9c+fUf55p76HpzLPPlOWBjzjby90CasqpZ6HeVAZDe+NYG/4BGYMw7rIY6ZlO3sumK1cVzp8Q2L2LrLBTFCIigERdv0Rq0iuACw5j6TeuRmujmq7eCma162TH6JKueBUv1uZYJK5hVck+jfvO4fPBTTIrraYzJ6A0qaGe2EIu8q4pED5YsX2VxlwIDAQAB",
   "background": { "service_worker": "background.js" },
   "action": {
     "default_popup": "popup.html",
