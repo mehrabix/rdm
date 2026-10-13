@@ -40,9 +40,15 @@ feature matrix and roadmap.
 | Area | State |
 |---|---|
 | Engine: probe, segment, resume, cancel/pause, speed/ETA | ✅ |
-| UI: add / pause / resume / cancel / remove, categories, search, dark theme | ✅ |
-| Dynamic re-segmentation (live), scheduler, speed limit | 🚧 Phase 1+ |
-| Browser integration, media grabber, packaging | ⬜ later phases |
+| UI: add / pause / resume / cancel / remove, open folder, categories, search, colour theme, app icon | ✅ |
+| Dynamic re-segmentation (live), speed limiter, all/pause-all, queue persistence, throughput graph | 🚧 Phase 1 |
+| Scheduler, named queues, batch + clipboard capture, folder rules | ⬜ Phase 2 |
+| Browser integration (extension + native host) | ⬜ Phase 3 |
+| Media grabber (HLS/DASH), site grabber | ⬜ Phase 4 |
+| Tray, notifications, packaging (deb/AppImage/Flatpak) | ⬜ Phase 5 |
+
+The full, exhaustive IDM feature matrix and roadmap live in the
+[masterplan §9–10](docs/MASTERPLAN.md#9-feature-parity-matrix-vs-idm).
 
 ## Quick start
 

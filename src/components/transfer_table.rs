@@ -1,6 +1,7 @@
 use dioxus::prelude::*;
 use rdm_core::format::{human_bytes, human_eta, human_speed};
 use rdm_core::{Category, DownloadStatus, DownloadTask};
+use tw_merge::tw_merge;
 
 use crate::components::icons::{Icon, IconName};
 use crate::state::{file_name, Downloads};
@@ -39,6 +40,9 @@ pub fn TransferTable(state: Downloads) -> Element {
 #[component]
 fn Row(state: Downloads, task: DownloadTask) -> Element {
     let id = task.id.clone();
+    let selected = state.selected.read().clone();
+    let is_selected = selected.as_deref() == Some(id.as_str());
+
     let name = file_name(&task);
     let url = task
         .remote
@@ -62,18 +66,37 @@ fn Row(state: Downloads, task: DownloadTask) -> Element {
         .map(|total| human_eta(total.saturating_sub(task.downloaded), task.speed))
         .unwrap_or_else(|| "—".to_string());
 
+    let (badge_label, badge_variant) = status_badge(status);
+    let segments = task.segments.clone();
+    let percent = format!("{:.0}%", progress * 100.0);
+    let icon_class = tw_merge!("size-4", category_color(task.category));
+    let done = status == DownloadStatus::Completed;
+
+    let select_id = id.clone();
     let resume_id = id.clone();
     let pause_id = id.clone();
     let stop_id = id.clone();
     let remove_id = id.clone();
+    let folder_path = task.output_path();
+    let open_file_path = folder_path.clone();
 
-    let (badge_label, badge_variant) = status_badge(status);
-    let segments = task.segments.clone();
+    let row_class = tw_merge!(
+        "grid grid-cols-[minmax(0,1fr)_6rem_9rem_7rem_6.5rem_5.5rem] items-center gap-3 border-b border-border/60 px-4 py-2 text-sm",
+        if is_selected { "bg-primary/10" } else { "hover:bg-muted/40" }
+    );
 
     rsx! {
-        div { class: "grid grid-cols-[minmax(0,1fr)_6rem_9rem_7rem_6.5rem_5.5rem] items-center gap-3 border-b border-border/60 px-4 py-2 text-sm hover:bg-accent/30",
+        div {
+            class: row_class,
+            onclick: move |_| state.select(Some(select_id.clone())),
+            ondoubleclick: move |_| {
+                if done {
+                    state.open_file(open_file_path.clone());
+                }
+            },
+
             div { class: "flex min-w-0 items-center gap-2.5",
-                Icon { name: category_icon(task.category), class: "size-4 text-muted-foreground" }
+                Icon { name: category_icon(task.category), class: icon_class }
                 div { class: "min-w-0",
                     div { class: "truncate font-medium", "{name}" }
                     div { class: "truncate text-xs text-muted-foreground", "{url}" }
@@ -85,7 +108,7 @@ fn Row(state: Downloads, task: DownloadTask) -> Element {
             div { class: "flex flex-col gap-1",
                 Progress { value: progress, indeterminate }
                 div { class: "flex items-center gap-2 text-[11px] text-muted-foreground",
-                    span { class: "tabular-nums", "{format!(\"{:.0}%\", progress * 100.0)}" }
+                    span { class: "tabular-nums", "{percent}" }
                     span { class: "ml-auto tabular-nums", "{eta}" }
                 }
                 if !segments.is_empty() {
@@ -93,10 +116,10 @@ fn Row(state: Downloads, task: DownloadTask) -> Element {
                         for (index, segment) in segments.iter().take(16).enumerate() {
                             div {
                                 key: "{index}",
-                                class: "h-0.5 flex-1 overflow-hidden rounded-full bg-secondary",
+                                class: "h-0.5 flex-1 overflow-hidden rounded-full bg-muted",
                                 div {
-                                    class: "h-full bg-primary/80",
-                                    style: format!("width: {:.0}%", segment_fill(segment.downloaded, segment.len())),
+                                    class: "h-full bg-primary/70",
+                                    style: "width: {segment_fill(segment.downloaded, segment.len()):.0}%",
                                 }
                             }
                         }
@@ -120,8 +143,14 @@ fn Row(state: Downloads, task: DownloadTask) -> Element {
                         Icon { name: IconName::Play }
                     }
                 }
-                Button { variant: ButtonVariant::Ghost, size: ButtonSize::Icon, class: "size-7", onclick: move |_| state.cancel(stop_id.clone()),
-                    Icon { name: IconName::Stop }
+                if done {
+                    Button { variant: ButtonVariant::Ghost, size: ButtonSize::Icon, class: "size-7", onclick: move |_| state.open_folder(folder_path.clone()),
+                        Icon { name: IconName::Folder }
+                    }
+                } else {
+                    Button { variant: ButtonVariant::Ghost, size: ButtonSize::Icon, class: "size-7", onclick: move |_| state.cancel(stop_id.clone()),
+                        Icon { name: IconName::Stop }
+                    }
                 }
                 Button { variant: ButtonVariant::Ghost, size: ButtonSize::Icon, class: "size-7 hover:text-destructive", onclick: move |_| state.remove(remove_id.clone()),
                     Icon { name: IconName::Trash }
@@ -134,10 +163,12 @@ fn Row(state: Downloads, task: DownloadTask) -> Element {
 #[component]
 fn Empty() -> Element {
     rsx! {
-        div { class: "flex h-full flex-col items-center justify-center gap-2 p-10 text-center text-muted-foreground",
-            Icon { name: IconName::Download, class: "size-9 opacity-40" }
+        div { class: "flex h-full flex-col items-center justify-center gap-3 p-10 text-center",
+            div { class: "grid size-14 place-items-center rounded-2xl bg-primary/15 text-primary",
+                Icon { name: IconName::Download, class: "size-7" }
+            }
             p { class: "text-sm font-medium text-foreground", "No downloads here yet" }
-            p { class: "text-xs", "Click “New” to paste a URL and start downloading." }
+            p { class: "text-xs text-muted-foreground", "Click “New” to paste a URL and start downloading." }
         }
     }
 }
@@ -154,8 +185,8 @@ fn status_badge(status: DownloadStatus) -> (&'static str, BadgeVariant) {
     match status {
         DownloadStatus::Queued => ("Queued", BadgeVariant::Secondary),
         DownloadStatus::Probing => ("Probing", BadgeVariant::Outline),
-        DownloadStatus::Downloading => ("Downloading", BadgeVariant::Default),
-        DownloadStatus::Paused => ("Paused", BadgeVariant::Outline),
+        DownloadStatus::Downloading => ("Downloading", BadgeVariant::Info),
+        DownloadStatus::Paused => ("Paused", BadgeVariant::Warning),
         DownloadStatus::Completed => ("Done", BadgeVariant::Success),
         DownloadStatus::Failed => ("Failed", BadgeVariant::Destructive),
         DownloadStatus::Cancelled => ("Cancelled", BadgeVariant::Outline),
@@ -171,5 +202,18 @@ fn category_icon(category: Category) -> IconName {
         Category::Video => IconName::Video,
         Category::Images => IconName::Image,
         Category::Other => IconName::File,
+    }
+}
+
+/// A hue per category — the only place the UI spends colour on "data".
+fn category_color(category: Category) -> &'static str {
+    match category {
+        Category::Compressed => "text-amber-400",
+        Category::Documents => "text-sky-400",
+        Category::Music => "text-fuchsia-400",
+        Category::Programs => "text-emerald-400",
+        Category::Video => "text-rose-400",
+        Category::Images => "text-violet-400",
+        Category::Other => "text-slate-400",
     }
 }

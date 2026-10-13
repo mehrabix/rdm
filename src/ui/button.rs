@@ -1,6 +1,9 @@
 use dioxus::prelude::*;
 use tw_merge::tw_merge;
 
+/// The full rust-ui variant set, so the primitive stays complete even when a
+/// given app does not exercise every variant yet.
+#[allow(dead_code)]
 #[derive(Clone, Copy, PartialEq, Eq, Default)]
 pub enum ButtonVariant {
     #[default]
@@ -12,6 +15,7 @@ pub enum ButtonVariant {
     Link,
 }
 
+#[allow(dead_code)]
 #[derive(Clone, Copy, PartialEq, Eq, Default)]
 pub enum ButtonSize {
     Sm,

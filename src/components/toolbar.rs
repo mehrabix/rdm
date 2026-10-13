@@ -4,7 +4,6 @@ use crate::components::icons::{Icon, IconName};
 use crate::state::Downloads;
 use crate::ui::button::{Button, ButtonSize, ButtonVariant};
 use crate::ui::input::Input;
-use crate::ui::separator::Separator;
 
 #[component]
 pub fn Toolbar(state: Downloads) -> Element {
@@ -17,15 +16,6 @@ pub fn Toolbar(state: Downloads) -> Element {
 
     rsx! {
         header { class: "flex items-center gap-2 border-b border-border bg-card px-3 py-2",
-            div { class: "flex items-center gap-2 pr-1",
-                div { class: "grid size-7 place-items-center rounded-md bg-primary text-primary-foreground",
-                    Icon { name: IconName::Download }
-                }
-                span { class: "text-sm font-semibold tracking-tight", "RDM" }
-            }
-
-            Separator { vertical: true }
-
             Button {
                 size: ButtonSize::Sm,
                 onclick: move |_| state.open_add(),

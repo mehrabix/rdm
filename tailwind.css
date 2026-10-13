@@ -2,45 +2,68 @@
 @source "./src/**/*.{rs,html,css}";
 
 /*
- * RDM theme tokens — a shadcn/rust-ui style palette.
- * Light is the default; add `class="dark"` on <html> for the dark theme.
+ * RDM palette — restrained but colourful.
+ *   primary  : indigo / violet   (actions, progress, selection)
+ *   neutrals : slate-ish         (surfaces, borders, text)
+ *   semantic : success / warning / danger / info
+ * Light is the base; `.dark` (set on <html>) is the default look.
  */
 @theme {
-  --color-background: oklch(1 0 0);
-  --color-foreground: oklch(0.145 0 0);
+  --color-background: oklch(0.98 0.004 275);
+  --color-foreground: oklch(0.22 0.02 275);
   --color-card: oklch(1 0 0);
-  --color-card-foreground: oklch(0.145 0 0);
-  --color-muted: oklch(0.97 0 0);
-  --color-muted-foreground: oklch(0.556 0 0);
-  --color-border: oklch(0.922 0 0);
-  --color-input: oklch(0.922 0 0);
-  --color-ring: oklch(0.708 0 0);
-  --color-primary: oklch(0.205 0 0);
-  --color-primary-foreground: oklch(0.985 0 0);
-  --color-secondary: oklch(0.97 0 0);
-  --color-secondary-foreground: oklch(0.205 0 0);
-  --color-destructive: oklch(0.577 0.245 27.325);
-  --color-destructive-foreground: oklch(0.985 0 0);
-  --color-accent: oklch(0.97 0 0);
-  --color-accent-foreground: oklch(0.205 0 0);
-  --radius: 0.5rem;
+  --color-card-foreground: oklch(0.22 0.02 275);
+  --color-muted: oklch(0.96 0.006 275);
+  --color-muted-foreground: oklch(0.52 0.02 275);
+  --color-border: oklch(0.90 0.008 275);
+  --color-input: oklch(0.90 0.008 275);
+  --color-ring: oklch(0.60 0.19 285);
+
+  --color-primary: oklch(0.55 0.22 285);
+  --color-primary-foreground: oklch(0.99 0.01 285);
+  --color-secondary: oklch(0.96 0.006 275);
+  --color-secondary-foreground: oklch(0.30 0.03 275);
+  --color-accent: oklch(0.94 0.03 285);
+  --color-accent-foreground: oklch(0.34 0.12 285);
+
+  --color-destructive: oklch(0.58 0.23 20);
+  --color-destructive-foreground: oklch(0.99 0.01 20);
+  --color-success: oklch(0.60 0.15 155);
+  --color-success-foreground: oklch(0.99 0.01 155);
+  --color-warning: oklch(0.74 0.15 70);
+  --color-warning-foreground: oklch(0.24 0.04 70);
+  --color-info: oklch(0.58 0.15 245);
+  --color-info-foreground: oklch(0.99 0.01 245);
+
+  --radius: 0.625rem;
 }
 
 .dark {
-  --color-background: oklch(0.145 0 0);
-  --color-foreground: oklch(0.985 0 0);
-  --color-card: oklch(0.205 0 0);
-  --color-card-foreground: oklch(0.985 0 0);
-  --color-muted: oklch(0.269 0 0);
-  --color-muted-foreground: oklch(0.708 0 0);
-  --color-border: oklch(0.269 0 0);
-  --color-input: oklch(0.269 0 0);
-  --color-primary: oklch(0.985 0 0);
-  --color-primary-foreground: oklch(0.205 0 0);
-  --color-secondary: oklch(0.269 0 0);
-  --color-secondary-foreground: oklch(0.985 0 0);
-  --color-accent: oklch(0.269 0 0);
-  --color-accent-foreground: oklch(0.985 0 0);
+  --color-background: oklch(0.17 0.018 275);
+  --color-foreground: oklch(0.96 0.008 275);
+  --color-card: oklch(0.21 0.02 275);
+  --color-card-foreground: oklch(0.96 0.008 275);
+  --color-muted: oklch(0.26 0.02 275);
+  --color-muted-foreground: oklch(0.70 0.02 275);
+  --color-border: oklch(0.30 0.022 275);
+  --color-input: oklch(0.32 0.024 275);
+  --color-ring: oklch(0.66 0.19 285);
+
+  --color-primary: oklch(0.67 0.19 285);
+  --color-primary-foreground: oklch(0.16 0.03 285);
+  --color-secondary: oklch(0.27 0.02 275);
+  --color-secondary-foreground: oklch(0.96 0.008 275);
+  --color-accent: oklch(0.33 0.06 285);
+  --color-accent-foreground: oklch(0.92 0.05 285);
+
+  --color-destructive: oklch(0.63 0.21 20);
+  --color-destructive-foreground: oklch(0.98 0.01 20);
+  --color-success: oklch(0.72 0.16 155);
+  --color-success-foreground: oklch(0.16 0.03 155);
+  --color-warning: oklch(0.79 0.15 75);
+  --color-warning-foreground: oklch(0.19 0.03 75);
+  --color-info: oklch(0.72 0.14 240);
+  --color-info-foreground: oklch(0.16 0.02 240);
 }
 
 html,

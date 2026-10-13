@@ -1,0 +1,4 @@
+# pnpm settings (pnpm 12 reads these here, not from package.json).
+# Allow the native watcher used by Tailwind to build its binary.
+allowBuilds:
+  "@parcel/watcher": true

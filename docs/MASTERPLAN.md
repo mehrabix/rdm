@@ -234,26 +234,98 @@ emits a `ProgressUpdate`.
 
 ## 9. Feature parity matrix (vs. IDM)
 
-| IDM capability | Status |
+Target: **every** capability IDM offers, either implemented or explicitly
+scheduled. ✅ done · 🟡 partial · ⬜ planned.
+
+The checklist is derived from IDM's own feature page
+(<https://www.internetdownloadmanager.com/features2.html>) and user guide, so we
+aim at real parity rather than a guess at what IDM does.
+
+### Core transfer engine
+
+| Capability | Status |
 |---|---|
-| Multi-connection segmented download | ✅ core |
-| Resume / restart partial transfers | ✅ core |
-| Pause / resume (single & all) | ✅ (all: Phase 1) |
-| Dynamic segmentation | 🟡 algorithm done, live wiring Phase 1 |
-| Speed limit (global & per-download) | ⬜ Phase 1 |
-| Categories & queues | 🟡 categories ✅, queues Phase 2 |
-| Scheduler (start/stop at a time) | ⬜ Phase 2 |
-| Batch downloads (clipboard, .txt) | ⬜ Phase 2 |
-| Browser integration (Firefox/Chromium) | ⬜ Phase 3 |
-| Video/media grabber (HLS/DASH) | ⬜ Phase 4 |
-| Site grabber (scoped crawl) | ⬜ Phase 4 |
-| Proxy / SOCKS | ⬜ Phase 6 |
-| HTTP auth (basic/digest) | ⬜ Phase 6 |
-| Mirrors / Metalink | ⬜ Phase 6 |
-| Post-download antivirus scan | ⬜ Phase 5 |
-| Tray icon, notifications, sound | ⬜ Phase 5 |
-| Dark/light themes | ✅ |
-| BitTorrent | ❌ out of scope v1 |
+| Multi-connection segmented download (1–32) | ✅ |
+| HTTP range probing / size + validator discovery | ✅ |
+| Resume from a crash (sidecar segment table) | ✅ |
+| Pause / resume a single download | ✅ |
+| Pause all / resume all | ✅ |
+| Retry on failure with backoff | ✅ (per-segment) |
+| Reconnect / auto-recover stalled connections | 🟡 |
+| Dynamic segmentation (live re-split of the largest chunk) | 🟡 algorithm done, wiring Phase 1 |
+| Download queue with bounded concurrency | ✅ |
+| Named queues + per-queue concurrency | ⬜ Phase 2 |
+| Built-in scheduler (start/stop/queue at a time) | ⬜ Phase 2 |
+| Disconnect / shut down when finished | ⬜ Phase 5 |
+| Periodic synchronisation of files | ⬜ Phase 4 |
+| Speed limiter (global + per-download) | ⬜ Phase 1 |
+| Progressive download quotas (MB per hour) | ⬜ Phase 6 |
+| Mirrors / failover across alternate hosts | ⬜ Phase 6 |
+| Metalink support | ⬜ Phase 6 |
+| Protocols: HTTP / HTTPS | ✅ |
+| Protocol: FTP / FTPS | ⬜ Phase 6 |
+| Protocol: MMS / MMS-over-HTTP | ⬜ Phase 6 |
+| Proxy (HTTP / SOCKS4-5, MS ISA, FTP proxy) | ⬜ Phase 6 |
+| Auth: Basic / Digest | ⬜ Phase 6 |
+| Auth: Negotiate / NTLM / Kerberos | ⬜ Phase 6 |
+| Cookies / Referer / User-Agent | ✅ (fields wired) |
+
+### Capture & integration
+
+| Capability | Status |
+|---|---|
+| Browser extension (Firefox + Chromium) | ⬜ Phase 3 |
+| Native-messaging host | ⬜ Phase 3 |
+| One-click "take over" of browser downloads | ⬜ Phase 3 |
+| "Download with RDM" context menu | ⬜ Phase 3 |
+| Advanced integration: catch downloads from any app | ⬜ Phase 3 |
+| "Download All" — every link on the page | ⬜ Phase 3 |
+| Clipboard URL monitor ("catch" copied links) | ⬜ Phase 2 |
+| Batch download from a `.txt` list | ⬜ Phase 2 |
+| Drag & drop links in / downloaded files out | ⬜ Phase 2 |
+| Site spider & grabber (filters, subsets, offline browsing) | ⬜ Phase 4 |
+| Scheduled / periodic grabber projects | ⬜ Phase 4 |
+| Media grabber: HLS / DASH assembly | ⬜ Phase 4 |
+| `yt-dlp` bridge for streaming sites | ⬜ Phase 4 |
+
+### Completing a download
+
+| Capability | Status |
+|---|---|
+| Download categories (auto-organise into folders) | 🟡 categories ✅, folder rules Phase 2 |
+| Duplicate detection | ⬜ Phase 2 |
+| Open file / reveal in folder | ✅ |
+| Checksum verification (MD5 / SHA-1 / SHA-256) | ⬜ Phase 5 |
+| Automatic antivirus scan on completion | ⬜ Phase 5 |
+| Run a program / post-processing hook | ⬜ Phase 5 |
+
+### UX & platform
+
+| Capability | Status |
+|---|---|
+| Category rail with counts | ✅ |
+| Search / filter transfers | ✅ |
+| Per-connection segment visualisation | ✅ |
+| Live speed + ETA | ✅ |
+| System tray icon (pause all / resume all / quit) | ✅ |
+| Dark theme | ✅ |
+| Throughput graph | ⬜ Phase 1 |
+| Per-download detail panel (headers, log) | ⬜ Phase 1 |
+| Light theme / theme toggle | ⬜ Phase 5 |
+| Customisable interface (button order, toolbar skins) | ⬜ Phase 5 |
+| Minimise-to-tray | ⬜ Phase 5 |
+| Desktop notifications + completion sound | ⬜ Phase 5 |
+| Autostart on login | ⬜ Phase 5 |
+| Multi-language UI | ⬜ Phase 5 |
+| Self-update ("quick update") | ⬜ Phase 6 |
+| Guided first-run setup ("install wizard") | ⬜ Phase 5 |
+| Packaging: `.deb` / AppImage / Flatpak | ⬜ Phase 5 |
+| Windows / macOS builds | ⬜ Phase 6 |
+| Headless `rdm-cli` (same engine) | ⬜ Phase 6 |
+
+**Deliberately out of scope for v1:** BitTorrent (different protocol class) and
+DRM circumvention.
+
 
 ## 10. Roadmap
 

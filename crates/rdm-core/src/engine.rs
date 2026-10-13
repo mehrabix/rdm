@@ -331,10 +331,8 @@ impl DownloadManager {
             self.stream_single(&spec, &out_path, &opts, &single, &control)
                 .await
         } else {
-            self.stream_segments(
-                &spec, &segments, &out_path, &opts, &counters, total, &control,
-            )
-            .await
+            self.stream_segments(&spec, &segments, &out_path, &counters, total, &control)
+                .await
         };
 
         ticker.abort();
@@ -347,7 +345,6 @@ impl DownloadManager {
         spec: &DownloadSpec,
         segments: &[Segment],
         out_path: &Path,
-        opts: &RequestOptions,
         counters: &Arc<Vec<AtomicU64>>,
         total: Option<u64>,
         control: &Control,
@@ -359,7 +356,6 @@ impl DownloadManager {
             let client = client.clone();
             let spec = spec.clone();
             let out_path = out_path.to_path_buf();
-            let opts = opts.clone();
             let counters = counters.clone();
             let control = control.clone();
             async move {

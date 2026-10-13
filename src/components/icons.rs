@@ -27,7 +27,6 @@ pub enum IconName {
     Image,
     File,
     Check,
-    ChevronRight,
 }
 
 impl IconName {
@@ -51,7 +50,6 @@ impl IconName {
             Image => "M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM8 10a2 2 0 1 0 0-4 2 2 0 0 0 0 4Zm13 8-5-5L5 21",
             File => "M6 3h8l4 4v14H6zM14 3v4h4",
             Check => "M20 6 9 17l-5-5",
-            ChevronRight => "m9 18 6-6-6-6",
         }
     }
 }

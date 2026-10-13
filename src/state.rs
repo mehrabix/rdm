@@ -195,6 +195,55 @@ impl Downloads {
         });
     }
 
+    /// Pause every transfer that is running or waiting.
+    pub fn pause_all(&self) {
+        let ids: Vec<String> = self
+            .tasks
+            .read()
+            .iter()
+            .filter(|t| t.status.is_active() || t.status == DownloadStatus::Queued)
+            .map(|t| t.id.clone())
+            .collect();
+        for id in ids {
+            spawn(async move {
+                let _ = engine().pause(&id).await;
+            });
+        }
+    }
+
+    /// Resume every transfer that is stopped but recoverable.
+    pub fn resume_all(&self) {
+        let ids: Vec<String> = self
+            .tasks
+            .read()
+            .iter()
+            .filter(|t| {
+                matches!(
+                    t.status,
+                    DownloadStatus::Paused | DownloadStatus::Failed | DownloadStatus::Cancelled
+                )
+            })
+            .map(|t| t.id.clone())
+            .collect();
+        for id in ids {
+            spawn(async move {
+                let _ = engine().resume(&id).await;
+            });
+        }
+    }
+
+    /// Reveal a completed download in the OS file manager.
+    pub fn open_folder(&self, path: PathBuf) {
+        if let Some(dir) = path.parent() {
+            let _ = std::process::Command::new("xdg-open").arg(dir).spawn();
+        }
+    }
+
+    /// Open a completed file with the desktop's default application.
+    pub fn open_file(&self, path: PathBuf) {
+        let _ = std::process::Command::new("xdg-open").arg(path).spawn();
+    }
+
     pub fn selected_ids(&self) -> Vec<String> {
         self.selected.read().clone().into_iter().collect()
     }

@@ -169,7 +169,7 @@ impl DownloadSpec {
 }
 
 /// The persisted, observable state of a transfer.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct DownloadTask {
     pub id: String,
     pub spec: DownloadSpec,

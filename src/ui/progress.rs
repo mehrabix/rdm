@@ -7,7 +7,8 @@ pub fn Progress(
     #[props(default)] indeterminate: bool,
     #[props(default)] class: String,
 ) -> Element {
-    // An indeterminate transfer (unknown Content-Length) shows a pulsing bar.
+    // An indeterminate transfer (unknown Content-Length) shows a pulsing bar;
+    // otherwise the bar slides in from the right as bytes arrive.
     let shift = if indeterminate {
         0.0
     } else {
@@ -15,7 +16,7 @@ pub fn Progress(
     };
 
     let class = tw_merge!(
-        "relative h-1.5 w-full overflow-hidden rounded-full bg-secondary",
+        "relative h-1.5 w-full overflow-hidden rounded-full bg-secondary/80",
         class
     );
 
@@ -23,11 +24,15 @@ pub fn Progress(
         div { class,
             div {
                 class: if indeterminate {
-                    "h-full w-1/3 animate-pulse rounded-full bg-primary"
+                    "h-full w-1/3 animate-pulse rounded-full bg-gradient-to-r from-info to-primary"
                 } else {
-                    "h-full w-full rounded-full bg-primary transition-transform duration-300"
+                    "h-full w-full rounded-full bg-gradient-to-r from-info to-primary transition-transform duration-300"
                 },
-                style: if indeterminate { String::new() } else { format!("transform: translateX(-{shift}%)") },
+                style: if indeterminate {
+                    String::new()
+                } else {
+                    format!("transform: translateX(-{shift}%)")
+                },
             }
         }
     }
