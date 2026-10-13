@@ -4,30 +4,30 @@ Hash: SHA512
 Architectures: amd64
 Codename: stable
 Components: main
-Date: Tue, 13 Oct 2026 11:26:36 +0000
+Date: Tue, 13 Oct 2026 11:29:54 +0000
 Label: RDM
 Origin: RDM
 Suite: stable
 MD5Sum:
- 99bf69b1f2ebdb5e8a5fe65520cf8294              130 Release
+ 56511c7366ef9f61765618e634fd107c              130 Release
  03a479fb41047872236667f71bcc229d              685 main/binary-amd64/Packages
- 1ad50bf52e6b98dc7bd4014da1857ed9              499 main/binary-amd64/Packages.gz
+ adf17dde1d784370bb6a4901eeb27522              499 main/binary-amd64/Packages.gz
 SHA1:
- 3c136fd82b768698a031d3099825f565e2734915              130 Release
+ c0adf34c31923c4e8346b04757e67ccc50492f5f              130 Release
  74d8a2c91039423b77817c737be389a96649c180              685 main/binary-amd64/Packages
- 9fbbae882a7ac8a6faa4ddd296cfcdb084eff004              499 main/binary-amd64/Packages.gz
+ dd76240f3ac86c9e6945cea88ad0945d0d596e97              499 main/binary-amd64/Packages.gz
 SHA256:
- 31dc34307cc2ee686711147ba9c64f584bb3d66bd92e92a57509ff9a8d3b82c8              130 Release
+ 6f834ddcdf0ddce012deabbe4142611336f80b2be8472aea7f5702cb335a6c17              130 Release
  a574879605de7a582e926e3a10e918d39399774bb1da0eb97a5df36d22e2cc57              685 main/binary-amd64/Packages
- 4656f8a7f0f9f753190687d419ccdc0c44947113d4515bf45a6178af2172efbc              499 main/binary-amd64/Packages.gz
+ 1050b4bc7d8c42179eccf097ace90fe7ff401613f780ba573b0a9c6433e0bd5d              499 main/binary-amd64/Packages.gz
 SHA512:
- 6a5e8fecb072c6952b3eb509969c48b93befab8226849613cd96a59e593b81ae0759a5b1d26e40e4896191156f4ff95287d3d4f95c8d1ac67955ef2ca8f56749              130 Release
+ 844da2e9c35d56a04e858c2fe3a7533f4f6194518894c768df65e8ad48223f6a6a2cea6fe8a5ac5e304c5eadea5a9c5cc7b081dbea8a6c739f81cd390d7302b0              130 Release
  148f7156d384bdbbed935dd17bdcf3ba759372679437c355e707eba894e0a1a93fdb1c32b9410a57d67ba8d561414513e8197283c53f58696e9bf1f836470235              685 main/binary-amd64/Packages
- 2f08f0ce199b61352e83f1214967be5e938be2e759e157929dcccd4ef7f371554a05cc14b12c0c2beefb0784bef2eec2846bbc3a508640d3b3e769673de17aee              499 main/binary-amd64/Packages.gz
+ 877b1bfe40293dd7df45e22bc2ff3f912f3e0918e1e1f5ca13b7720c875992793b73d87405a357fb336a56db0edaa6c0b52ac5a9a1445d5bf413ac69e8ccf55f              499 main/binary-amd64/Packages.gz
 -----BEGIN PGP SIGNATURE-----
 
-iHUEARYKAB0WIQSHvu4TM7B+eYHP6B7VBFUvSGWqugUCas4VbAAKCRDVBFUvSGWq
-upksAQCYVoGNV/5HC71CNFE6NKzLbDUlNQp4VbNK31nNXpb31gEAl7JrZbWexNM9
-x857ee9vbhnOEJOg84J4iNVI5blVZgw=
-=NZN9
+iHUEARYKAB0WIQSHvu4TM7B+eYHP6B7VBFUvSGWqugUCas4WMgAKCRDVBFUvSGWq
+urcOAQDPGVmgY3SHIeNYtJOgG6L8akz1Cb87/DA+LkC6+DjtEQD+I8JlViAHlpcO
+5/2wvkrY1xlhWgCvZxBpKNIlZbj23Qk=
+=PBxy
 -----END PGP SIGNATURE-----
