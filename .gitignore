@@ -1,0 +1,25 @@
+# Rust / Cargo
+/target
+**/*.rs.bk
+**/*.pdb
+
+# Tooling
+.commandcode/
+
+# Dioxus / Tailwind
+/assets/tailwind.css
+/dist
+
+# Node (Tailwind CLI)
+node_modules
+pnpm-lock.yaml
+
+# Partial-download sidecars
+*.rdm.json
+*.rdm.part
+
+# Editor / OS
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store

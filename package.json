@@ -1,0 +1,16 @@
+{
+  "name": "rdm",
+  "private": true,
+  "version": "0.1.0",
+  "description": "RDM — Rust Download Manager (Tailwind tooling for the Dioxus desktop app).",
+  "scripts": {
+    "dev": "dx serve",
+    "desktop": "dx serve --desktop",
+    "bundle": "dx bundle --desktop",
+    "tailwind": "tailwindcss -i ./tailwind.css -o ./assets/tailwind.css --watch"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.1.14",
+    "tailwindcss": "^4.1.14"
+  }
+}

@@ -1,0 +1,6 @@
+[application]
+name = "rdm"
+default_platform = "desktop"
+
+[web.app]
+title = "RDM — Rust Download Manager"
