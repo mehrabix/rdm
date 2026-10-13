@@ -1,0 +1,36 @@
+# Flatpak manifest.
+#
+# Publish to Flathub by opening a PR against github.com/flathub/flathub with
+# this file (and the app id registered). Local test:
+#
+#   flatpak-builder --user --install --force-clean build com.mehrabix.RDM.yaml
+#
+app-id: com.mehrabix.RDM
+runtime: org.gnome.Platform
+runtime-version: "49"
+sdk: org.gnome.Sdk
+command: rdm
+
+finish-args:
+  - --share=network
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --device=dri
+  - --filesystem=xdg-download
+
+modules:
+  - name: rdm
+    buildsystem: simple
+    build-commands:
+      - install -Dm755 rdm /app/bin/rdm
+      - install -Dm644 rdm.desktop /app/share/applications/com.mehrabix.RDM.desktop
+      - install -Dm644 rdm.png /app/share/icons/hicolor/256x256/apps/com.mehrabix.RDM.png
+    sources:
+      - type: archive
+        url: https://github.com/mehrabix/rdm/releases/download/v0.1.0/rdm-linux-x86_64.tar.gz
+        # Fill in from the release's .sha256 asset.
+        sha256: REPLACE_WITH_THE_RELEASE_SHA256
+      - type: file
+        path: rdm.desktop
+      - type: file
+        path: rdm.png

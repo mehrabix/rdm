@@ -1,0 +1,30 @@
+{
+    "##": "Scoop manifest. Publish by adding this file to a bucket repo (e.g. mehrabix/scoop-bucket).",
+    "version": "0.1.0",
+    "description": "Fast, resumable, multi-connection download manager",
+    "homepage": "https://github.com/mehrabix/rdm",
+    "license": "MIT",
+    "architecture": {
+        "64bit": {
+            "url": "https://github.com/mehrabix/rdm/releases/download/v0.1.0/rdm-windows-x86_64.zip",
+            "hash": "REPLACE_WITH_THE_RELEASE_SHA256"
+        }
+    },
+    "bin": "rdm.exe",
+    "shortcuts": [
+        [
+            "rdm.exe",
+            "RDM"
+        ]
+    ],
+    "checkver": {
+        "github": "https://github.com/mehrabix/rdm"
+    },
+    "autoupdate": {
+        "architecture": {
+            "64bit": {
+                "url": "https://github.com/mehrabix/rdm/releases/download/v$version/rdm-windows-x86_64.zip"
+            }
+        }
+    }
+}

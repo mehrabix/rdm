@@ -151,15 +151,25 @@ jobs:
             sha256sum "rdm-${{ matrix.target }}.tar.gz" > "rdm-${{ matrix.target }}.tar.gz.sha256"
           fi
 
-      # A real installable Debian package (packaging/linux/build-deb.sh), built
-      # from the release directory rather than relying on `dx bundle`.
-      - name: Build .deb (Linux)
+      # Real installable packages (packaging/…), built from the release
+      # directory rather than relying on `dx bundle`.
+      - name: Build .deb + .rpm (Linux)
         if: runner.os == 'Linux'
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           APP="$(find target/dx/rdm/release -maxdepth 3 -type d -name app | head -1)"
+
           bash packaging/linux/build-deb.sh "$APP" "$VERSION" .
-          sha256sum rdm_*.deb > rdm_*.deb.sha256
+          sha256sum rdm_*.deb > rdm-deb.sha256
+
+          sudo apt-get install -y rpm
+          TOP="$RUNNER_TEMP/rpmbuild"
+          mkdir -p "$TOP"/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
+          cp assets/icon-256.png "$TOP/SOURCES/rdm.png"
+          sed "s/^Version:.*/Version:        $VERSION/" packaging/rpm/rdm.spec > "$TOP/SPECS/rdm.spec"
+          rpmbuild --define "_topdir $TOP" -bb "$TOP/SPECS/rdm.spec"
+          find "$TOP/RPMS" -name '*.rpm' -exec cp {} . \;
+          sha256sum rdm-*.rpm > rdm-rpm.sha256
 
       - name: Package (windows)
         if: runner.os == 'Windows'
@@ -184,4 +194,6 @@ jobs:
           files: |
             rdm-${{ matrix.target }}.*
             rdm_*.deb
-            rdm_*.deb.sha256
+            rdm-*.rpm
+            rdm-deb.sha256
+            rdm-rpm.sha256

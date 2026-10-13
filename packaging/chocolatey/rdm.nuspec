@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Chocolatey package metadata.
+  Build + publish (needs a chocolatey.org account and an API key):
+
+      choco pack
+      choco push rdm.0.1.0.nupkg --source https://push.chocolatey.org/ --api-key $env:CHOCO_API_KEY
+-->
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+  <metadata>
+    <id>rdm</id>
+    <version>0.1.0</version>
+    <title>RDM</title>
+    <authors>mehrabix</authors>
+    <projectUrl>https://github.com/mehrabix/rdm</projectUrl>
+    <licenseUrl>https://github.com/mehrabix/rdm/blob/main/LICENSE</licenseUrl>
+    <iconUrl>https://raw.githubusercontent.com/mehrabix/rdm/main/assets/icon-256.png</iconUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <projectSourceUrl>https://github.com/mehrabix/rdm</projectSourceUrl>
+    <docsUrl>https://github.com/mehrabix/rdm</docsUrl>
+    <tags>download downloader download-manager rust</tags>
+    <summary>Fast, resumable, multi-connection download manager</summary>
+    <description>
+RDM (Rust Download Manager) splits a file into parallel HTTP range requests,
+resumes after interruption, and runs native on Windows.
+    </description>
+  </metadata>
+  <files>
+    <file src="tools\**" target="tools" />
+  </files>
+</package>

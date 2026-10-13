@@ -1,0 +1,33 @@
+# Alpine Linux package (APKBUILD). Publish to a self-hosted repo with `abuild
+# -r` + `apk index`, or submit to the community repository.
+#
+#   abuild checksum && abuild -r
+#
+pkgname=rdm
+pkgver=0.1.0
+pkgrel=0
+pkgdesc="Fast, resumable, multi-connection download manager"
+url="https://github.com/mehrabix/rdm"
+arch="x86_64"
+license="MIT"
+depends="webkit2gtk-4.1 gtk+3.0 libayatana-appindicator librsvg"
+source="$pkgname-$pkgver.tar.gz::https://github.com/mehrabix/rdm/releases/download/v$pkgver/rdm-linux-x86_64.tar.gz"
+# abuild will fill this in with `abuild checksum`
+sha512sums="SKIP"
+
+package() {
+	local bin
+	bin="$(find "$srcdir" -type f -name rdm | head -1)"
+
+	install -Dm755 "$bin" "$pkgdir/usr/lib/rdm/rdm"
+
+	mkdir -p "$pkgdir/usr/bin"
+	cat > "$pkgdir/usr/bin/rdm" <<-'EOF'
+		#!/bin/sh
+		exec /usr/lib/rdm/rdm "$@"
+	EOF
+	chmod 755 "$pkgdir/usr/bin/rdm"
+
+	install -Dm644 "$srcdir/$(dirname "${bin#$srcdir/}")/assets/icon-256.png" \
+		"$pkgdir/usr/share/icons/hicolor/256x256/apps/rdm.png" 2>/dev/null || true
+}

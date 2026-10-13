@@ -89,14 +89,21 @@ release tarball.
 
 ### Others
 
-| Manager | Recipe needed | Blocker |
+Recipes are in the repo; the blocker is an account/credential, not code.
+
+| Manager | Recipe | Blocker to publish |
 |---|---|---|
-| Snap | `snapcraft.yaml` | Snap Store account + `SNAPCRAFT_STORE_CREDENTIALS` |
-| Flatpak / Flathub | `com.mehrabix.RDM.yaml` | Flathub account; ships the `.deb` or a build |
-| Scoop | a JSON manifest in a bucket | a `mehrabix/scoop-bucket` repo |
-| Chocolatey | a `.nuspec` + `chocolateyInstall.ps1` | Chocolatey account + API key |
-| RPM (Fedora/openSUSE) | `.spec` + `rpmbuild`/`fpm` | COPR account (Fedora) or OBS |
-| Alpine | `APKBUILD` | a published repo |
+| **RPM** (Fedora/openSUSE) | `packaging/rpm/rdm.spec` — **built and attached by CI** | COPR (Fedora) or OBS account to host a repo |
+| **Snap** | `packaging/snap/snapcraft.yaml` | Snap Store account + `SNAPCRAFT_STORE_CREDENTIALS` |
+| **Flatpak / Flathub** | `packaging/flatpak/com.mehrabix.RDM.yaml` | Flathub account + PR to `flathub/flathub` |
+| **Scoop** (Windows) | `packaging/scoop/rdm.json` | a `mehrabix/scoop-bucket` repo |
+| **Chocolatey** (Windows) | `packaging/chocolatey/rdm.nuspec` + `tools/chocolateyInstall.ps1` | chocolatey.org account + API key |
+| **Alpine** | `packaging/alpine/APKBUILD` | a self-hosted `apk` repo (or community repo review) |
+| **Nix** | `packaging/nix/default.nix` | a PR to nixpkgs (or host a flake) |
+| **winget** (Windows) | `packaging/winget/*.yaml` | PR to `microsoft/winget-pkgs` (or `wingetcreate`) |
+| **Homebrew** (macOS) | `packaging/homebrew/rdm.rb` | a `mehrabix/homebrew-rdm` tap; homebrew-cask wants a real `.app` |
+| **AppImage** | — | produced by `dx bundle` once bundling is fixed |
+| **Guix / Gentoo / Void / Solus** | — | follow the same pattern (package the release tarball) |
 
 ## The one thing that unblocks the rest
 

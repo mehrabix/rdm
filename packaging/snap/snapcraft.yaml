@@ -1,0 +1,43 @@
+# Snap package. Build + publish:
+#
+#   snapcraft pack                     # local
+#   snapcraft upload --release=stable rdm_0.1.0_amd64.snap
+#
+# Publishing to the Snap Store needs a store account and
+# SNAPCRAFT_STORE_CREDENTIALS (from `snapcraft export-login`).
+name: rdm
+base: core24
+version: "0.1.0"
+summary: Fast, resumable, multi-connection download manager
+description: |
+  RDM (Rust Download Manager) splits a file into parallel HTTP range requests,
+  resumes after interruption, and runs native on Linux, Windows and macOS.
+grade: stable
+confinement: strict
+license: MIT
+contact: https://github.com/mehrabix/rdm
+
+apps:
+  rdm:
+    command: bin/rdm
+    extensions: [gnome]
+    plugs:
+      - network
+      - network-status
+      - home
+      - desktop
+      - desktop-legacy
+      - wayland
+      - x11
+      - unity7
+      - gsettings
+      - removable-media
+
+parts:
+  rdm:
+    plugin: dump
+    source: https://github.com/mehrabix/rdm/releases/download/v0.1.0/rdm-linux-x86_64.tar.gz
+    source-type: tar
+    organize:
+      # the archive is a release directory; flatten the binary into bin/
+      "**/rdm": bin/rdm
