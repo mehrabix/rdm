@@ -1,0 +1,105 @@
+name: Repositories
+
+# Turns each published release into signed, installable package repositories on
+# GitHub Pages:
+#
+#   apt   → https://mehrabix.github.io/rdm/apt    (apt-get install rdm)
+#   rpm   → https://mehrabix.github.io/rdm/rpm    (dnf install rdm)
+#
+# The signing key lives in the repo secrets: GPG_PRIVATE_KEY + GPG_PASSPHRASE.
+# The matching public key is published at /rdm.gpg and committed at
+# packaging/rdm-archive-key.asc.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+      GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y dpkg-dev apt-utils createrepo-c gnupg rpm
+
+      - name: Download the release packages
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name || github.ref_name }}
+        run: |
+          mkdir -p incoming
+          gh release download "$TAG" -R "$GITHUB_REPOSITORY" \
+            -p '*.deb' -p '*.rpm' -D incoming --clobber || true
+          ls -l incoming
+
+      - name: Import the signing key
+        run: |
+          echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+          printf '%s' "$GPG_PASSPHRASE" > "$RUNNER_TEMP/pass"
+          KEYID=$(gpg --list-secret-keys --with-colons | awk -F: '/^sec/{print $5; exit}')
+          echo "KEYID=$KEYID" >> "$GITHUB_ENV"
+
+      # ---- apt (Debian / Ubuntu) -------------------------------------------
+      - name: Build the apt repository
+        run: |
+          set -euo pipefail
+          ROOT=public/apt
+          BIN="$ROOT/dists/stable/main/binary-amd64"
+          mkdir -p "$ROOT/pool/main" "$BIN"
+          cp incoming/*.deb "$ROOT/pool/main/" 2>/dev/null || true
+
+          cd "$ROOT"
+          dpkg-scanpackages --multiversion pool /dev/null > "../binary.tmp"
+          mv ../binary.tmp "dists/stable/main/binary-amd64/Packages"
+          gzip -kf "dists/stable/main/binary-amd64/Packages"
+
+          apt-ftparchive \
+            -o APT::FTPArchive::Release::Origin=RDM \
+            -o APT::FTPArchive::Release::Label=RDM \
+            -o APT::FTPArchive::Release::Suite=stable \
+            -o APT::FTPArchive::Release::Codename=stable \
+            -o APT::FTPArchive::Release::Architectures=amd64 \
+            -o APT::FTPArchive::Release::Components=main \
+            release dists/stable > dists/stable/Release
+
+          gpg --batch --yes --pinentry-mode loopback \
+            --passphrase-file "$RUNNER_TEMP/pass" \
+            --detach-sign --armor -o dists/stable/Release.gpg dists/stable/Release
+          gpg --batch --yes --pinentry-mode loopback \
+            --passphrase-file "$RUNNER_TEMP/pass" \
+            --clearsign -o dists/stable/InRelease dists/stable/Release
+
+      # ---- dnf / yum (Fedora / RHEL / openSUSE) ----------------------------
+      - name: Build the rpm repository
+        run: |
+          set -euo pipefail
+          ROOT=public/rpm
+          mkdir -p "$ROOT"
+          cp incoming/*.rpm "$ROOT/" 2>/dev/null || true
+          createrepo_c "$ROOT"
+          gpg --batch --yes --pinentry-mode loopback \
+            --passphrase-file "$RUNNER_TEMP/pass" \
+            --detach-sign --armor -o "$ROOT/repodata/repomd.xml.asc" \
+            "$ROOT/repodata/repomd.xml"
+
+      - name: Publish the public key
+        run: |
+          mkdir -p public
+          gpg --armor --export "$KEYID" > public/rdm.gpg
+          cp public/rdm.gpg packaging/rdm-archive-key.asc
+
+      - name: Publish to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./public
+          keep_files: false
