@@ -77,17 +77,21 @@ rdm/
 │   ├── ui/                 # rust-ui style primitives (button, input, badge, …)
 │   └── components/         # app-specific views (sidebar, toolbar, table, dialog)
 ├── crates/
-│   └── rdm-core/           # the headless download engine (no GUI deps)
-│       ├── src/
-│       │   ├── engine.rs   # DownloadManager: lifecycle, scheduling, controls
-│       │   ├── http.rs     # range probing + ranged fetches
-│       │   ├── segment.rs  # pure segmentation math (planning + splitting)
-│       │   ├── speed.rs    # EWMA throughput + ETA
-│       │   ├── store.rs    # crash-safe sidecar persistence (resume)
-│       │   ├── types.rs    # DownloadTask / Segment / Status / Category
-│       │   ├── format.rs   # human bytes / duration / speed
-│       │   └── util.rs     # filename derivation, unique paths, sidecars
-│       └── tests/engine.rs # end-to-end tests against a local range server
+│   ├── rdm-core/           # the headless download engine (no GUI deps)
+│   │   ├── src/
+│   │   │   ├── engine.rs   # DownloadManager: lifecycle, scheduling, controls
+│   │   │   ├── http.rs     # range probing + ranged fetches
+│   │   │   ├── ipc.rs      # local socket server for browser integration
+│   │   │   ├── segment.rs  # pure segmentation math (planning + splitting)
+│   │   │   ├── speed.rs    # EWMA throughput + ETA
+│   │   │   ├── store.rs    # crash-safe sidecar persistence (resume)
+│   │   │   ├── types.rs    # DownloadTask / Segment / Status / Category
+│   │   │   ├── format.rs   # human bytes / duration / speed
+│   │   │   └── util.rs     # filename derivation, unique paths, sidecars
+│   │   └── tests/          # engine + ipc end-to-end tests (local range server)
+│   └── rdm-native-host/    # browser native-messaging host (thin forwarding bin)
+├── browser-extension/      # MV3 WebExtension: "Download with RDM"
+├── packaging/              # package recipes + the browser host manifests
 └── docs/MASTERPLAN.md      # this file
 ```
 
@@ -325,12 +329,12 @@ aim at real parity rather than a guess at what IDM does.
 
 | Capability | Status |
 |---|---|
-| Browser extension (Firefox + Chromium) | ⬜ Phase 3 |
-| Native-messaging host | ⬜ Phase 3 |
-| One-click "take over" of browser downloads | ⬜ Phase 3 |
-| "Download with RDM" context menu | ⬜ Phase 3 |
-| Advanced integration: catch downloads from any app | ⬜ Phase 3 |
-| "Download All" — every link on the page | ⬜ Phase 3 |
+| Browser extension (Firefox + Chromium) | ✅ (link context menu) |
+| Native-messaging host | ✅ (Unix socket; Windows pipe ⬜) |
+| One-click "take over" of browser downloads | ⬜ |
+| "Download with RDM" context menu | ✅ |
+| Advanced integration: catch downloads from any app | ⬜ |
+| "Download All" — every link on the page | ⬜ |
 | Clipboard import (manual menu item) ✅; automatic monitor ⬜ Phase 5 | 🟡 |
 | Batch import (paste a list, or a `.txt` path) | ✅ |
 | Drag & drop links in / downloaded files out | ⬜ Phase 2 |
@@ -407,10 +411,13 @@ folder rules; ✅ duplicate detection; ✅ daily-window scheduler; ✅ named que
 with per-queue concurrency (assign in the Add dialog, start/stop from the
 sidebar). Remaining: drag-and-drop capture.
 
-**Phase 3 — Browser integration**
-WebExtension for Firefox + Chromium and a native-messaging host (stdin/stdout
-JSON-RPC over the message protocol) that hands URLs to RDM; "download with RDM"
-context-menu item; capture of declared downloads.
+**Phase 3 — Browser integration** *(v1 shipped)*
+A WebExtension (`browser-extension/`) with a **Download with RDM** link context
+menu, and `rdm-native-host` — a thin binary that speaks the browser's native
+messaging framing and forwards to a running RDM over a Unix socket
+(`rdm-core::ipc`), which the app serves while running. Remaining: automatic
+download take-over (Chromium), "Download All", and the Windows named-pipe
+transport.
 
 **Phase 4 — Media & sites**
 HLS/DASH segment assembly with an optional `yt-dlp` bridge for sites that need
@@ -502,17 +509,34 @@ path, and gives the Snap store a non-snap fallback. The bundler **requires** the
 `[bundle]` section in `Dioxus.toml` (identifier + publisher are mandatory);
 without it `dx bundle` bails before packaging anything.
 
-## 11. Browser integration (design sketch)
+## 11. Browser integration
 
 ```
-Browser ──(WebExtension)──> native messaging host ──JSON-RPC/stdio──> rdm
-   │                              (a small Rust bin)         (unix socket / localhost)
-   └── intercepts download ────────────────────────────────────────────┘
+right-click a link
+      │
+      ▼
+browser-extension (MV3: Chromium + Firefox)   context menu "Download with RDM"
+      │  runtime.sendNativeMessage("io.github.mehrabix.rdm", {action:"add", url, referer})
+      ▼
+rdm-native-host   (4-byte LE length + JSON over stdin/stdout)
+      │  forwards to the app's socket
+      ▼
+rdm (running)  ──  rdm-core::ipc::serve()  ──>  DownloadManager::add(spec)
 ```
 
-The engine already exposes everything needed (`add(spec)`); the work is the
-manifest files, the native host registration, and a local IPC endpoint. Because
-`rdm-core` is transport-agnostic and headless, the host binary is thin.
+- `rdm-core::ipc` — newline-delimited JSON over a Unix domain socket
+  (`$XDG_RUNTIME_DIR/rdm.sock`, else `~/.local/share/rdm/rdm.sock`). Requests are
+  validated (http/https only) and never executed; the socket is per-user.
+- `crates/rdm-native-host` — the browser-facing half: framing + forwarding.
+- `browser-extension/` — one MV3 extension (`manifest.firefox.json` for the
+  Firefox variant). The Chromium id is pinned by a manifest `key` so the host
+  manifest's `allowed_origins` is stable.
+- The app starts the listener from `App` (behind Settings → Browser); a queued
+  URL appears in the table via the existing poll.
+- Registration: `packaging/browser-host/*.json` (templated) written by
+  `scripts/install-browser-host.sh`, or shipped system-wide by the `.deb`.
+
+Windows (named pipe) is the remaining transport; every crate builds regardless.
 
 ## 12. Build & run
 

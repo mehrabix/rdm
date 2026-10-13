@@ -76,6 +76,8 @@ pub struct Settings {
     pub schedule_stop: String,
     /// Named queues and their concurrency limits.
     pub queues: Vec<QueueDef>,
+    /// Serve the local socket the browser extension sends links to.
+    pub browser_integration: bool,
 }
 
 impl Default for Settings {
@@ -95,6 +97,7 @@ impl Default for Settings {
             schedule_start: "01:00".to_string(),
             schedule_stop: "07:00".to_string(),
             queues: vec![QueueDef::default()],
+            browser_integration: true,
         }
     }
 }

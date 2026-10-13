@@ -11,6 +11,7 @@
 pub mod error;
 pub mod format;
 pub mod http;
+pub mod ipc;
 pub mod rate;
 pub mod segment;
 pub mod speed;

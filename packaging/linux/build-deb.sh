@@ -2,17 +2,21 @@
 #
 # Builds a Debian package from a built app directory.
 #
-#   packaging/linux/build-deb.sh <app-dir> <version> [out-dir]
+#   packaging/linux/build-deb.sh <app-dir> <version> [out-dir] [host-bin]
 #
 # <app-dir> is the directory `dx build --release` produces (it contains the
-# `rdm` binary). The package installs to /usr/lib/rdm with a /usr/bin/rdm
-# wrapper, a desktop entry and the icon, so it integrates with the app grid.
+# `rdm` binary). [host-bin] is the optional browser native-messaging host
+# (`rdm-native-host`); when given it is installed, with its manifests, so the
+# browser extension can reach the app. The package installs the app to
+# /usr/lib/rdm with a /usr/bin/rdm wrapper, a desktop entry and the icon, so it
+# integrates with the app grid.
 #
 set -euo pipefail
 
-APP_DIR="${1:?usage: build-deb.sh <app-dir> <version> [out-dir]}"
-VERSION="${2:?usage: build-deb.sh <app-dir> <version> [out-dir]}"
+APP_DIR="${1:?usage: build-deb.sh <app-dir> <version> [out-dir] [host-bin]}"
+VERSION="${2:?usage: build-deb.sh <app-dir> <version> [out-dir] [host-bin]}"
 OUT_DIR="${3:-.}"
+HOST_BIN="${4:-}"
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 BIN="$(find "$APP_DIR" -type f -name rdm | head -1)"
@@ -29,6 +33,18 @@ trap 'rm -rf "$STAGE"' EXIT
 install -Dm755 "$BIN" "$STAGE/usr/lib/rdm/rdm"
 if [ -d "$APP_DIR/assets" ]; then
   cp -r "$APP_DIR/assets" "$STAGE/usr/lib/rdm/"
+fi
+
+# Browser native-messaging host and its registration manifests.
+if [ -n "$HOST_BIN" ] && [ -x "$HOST_BIN" ]; then
+  install -Dm755 "$HOST_BIN" "$STAGE/usr/lib/rdm/rdm-native-host"
+  render_host() { sed "s|@HOST@|/usr/lib/rdm/rdm-native-host|" "$ROOT/packaging/browser-host/$1"; }
+  for dir in /etc/opt/chrome/native-messaging-hosts /etc/chromium/native-messaging-hosts; do
+    install -d "$STAGE$dir"
+    render_host io.github.mehrabix.rdm.chromium.json > "$STAGE$dir/io.github.mehrabix.rdm.json"
+  done
+  install -d "$STAGE/usr/lib/mozilla/native-messaging-hosts"
+  render_host io.github.mehrabix.rdm.firefox.json > "$STAGE/usr/lib/mozilla/native-messaging-hosts/io.github.mehrabix.rdm.json"
 fi
 
 mkdir -p "$STAGE/usr/bin"

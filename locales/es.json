@@ -97,6 +97,8 @@
   "options.scheduler": "Programador",
   "options.categories": "Categorías",
   "options.browser": "Navegador",
+  "options.browser.enable": "Activar la integración con el navegador",
+  "options.browser.hint": "Permite que la extensión de RDM envíe enlaces a esta aplicación (escucha en un socket local).",
   "options.sounds": "Sonidos",
   "options.close": "Cerrar",
   "options.general.theme": "Tema",

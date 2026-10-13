@@ -1,0 +1,7 @@
+{
+  "name": "io.github.mehrabix.rdm",
+  "description": "RDM (Rust Download Manager) native messaging host",
+  "path": "@HOST@",
+  "type": "stdio",
+  "allowed_extensions": ["rdm@mehrabix.github.io"]
+}

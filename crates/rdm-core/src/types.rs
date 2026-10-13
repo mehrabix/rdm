@@ -68,6 +68,19 @@ impl Category {
             _ => Category::Other,
         }
     }
+
+    /// Folder name used when downloads are organised by category.
+    pub fn folder(self) -> &'static str {
+        match self {
+            Category::Compressed => "Compressed",
+            Category::Documents => "Documents",
+            Category::Music => "Music",
+            Category::Programs => "Programs",
+            Category::Video => "Video",
+            Category::Images => "Images",
+            Category::Other => "Other",
+        }
+    }
 }
 
 /// What the server told us about a URL before we start transferring.

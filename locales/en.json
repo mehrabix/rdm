@@ -106,6 +106,8 @@
   "options.scheduler": "Scheduler",
   "options.categories": "Categories",
   "options.browser": "Browser",
+  "options.browser.enable": "Enable browser integration",
+  "options.browser.hint": "Let the RDM browser extension send links to this app (listens on a local socket).",
   "options.sounds": "Sounds",
   "options.close": "Close",
   "options.general.theme": "Theme",

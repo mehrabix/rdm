@@ -97,6 +97,8 @@
   "options.scheduler": "Zeitplan",
   "options.categories": "Kategorien",
   "options.browser": "Browser",
+  "options.browser.enable": "Browser-Integration aktivieren",
+  "options.browser.hint": "Erlaubt der RDM-Erweiterung, Links an diese App zu senden (lauscht auf einem lokalen Socket).",
   "options.sounds": "Töne",
   "options.close": "Schließen",
   "options.general.theme": "Design",

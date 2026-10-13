@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "RDM — Download with RDM",
+  "version": "0.1.0",
+  "description": "Right-click a link to download it with RDM (Rust Download Manager).",
+  "background": { "scripts": ["background.js"] },
+  "permissions": ["nativeMessaging", "contextMenus"],
+  "icons": { "128": "icons/icon-128.png" },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "rdm@mehrabix.github.io",
+      "strict_min_version": "115.0"
+    }
+  }
+}

@@ -84,6 +84,20 @@ Every artifact ships a `.sha256` checksum.
 See [docs/PACKAGING.md](docs/PACKAGING.md) for the full matrix and exactly what
 each channel is waiting on.
 
+## Browser integration
+
+Right-click any link in Firefox or Chromium → **Download with RDM**, and the URL
+is handed to the running app over a local socket.
+
+```bash
+scripts/install-browser-host.sh        # register the native-messaging host
+# then load browser-extension/ unpacked (see browser-extension/README.md)
+```
+
+The socket is `$XDG_RUNTIME_DIR/rdm.sock` (else `~/.local/share/rdm/rdm.sock`),
+accepts `http(s)` URLs only, and can be turned off under **Options → Browser**.
+The pieces: `browser-extension/`, `crates/rdm-native-host/`, and `rdm-core::ipc`.
+
 ## Build from source
 
 Prerequisites (Debian/Ubuntu shown; the full list is in
@@ -133,7 +147,8 @@ Most Linux download tools either do one stream well (`curl`, `wget`) or wrap
 | Distribution: apt, dnf/zypper, Homebrew, Scoop, Snap (edge), AppImage/`.dmg`/`.msi` installers | ✅ |
 | winget, AUR, Flathub, Chocolatey | ⬜ accounts/PRs pending |
 | Live dynamic segmentation, per-download speed limit | ⬜ |
-| Browser integration, media grabber, site grabber | ⬜ Phases 3–4 |
+| Browser integration: "Download with RDM" link menu (Firefox + Chromium) | ✅ |
+| Media grabber, site grabber | ⬜ Phase 4 |
 
 The exhaustive IDM-parity matrix and roadmap: [masterplan §9–10](docs/MASTERPLAN.md#9-feature-parity-matrix-vs-idm).
 
@@ -142,6 +157,8 @@ The exhaustive IDM-parity matrix and roadmap: [masterplan §9–10](docs/MASTERP
 | Path | What |
 |---|---|
 | `crates/rdm-core/` | The engine: probing, segmentation, resume, queues, speed limiting. Pure Rust, no GUI. |
+| `crates/rdm-native-host/` | Browser native-messaging host: forwards links to a running RDM. |
+| `browser-extension/` | MV3 extension ("Download with RDM") for Firefox + Chromium. |
 | `src/` | The Dioxus desktop app (`rdm`): `state.rs` bridges the engine to signals; `ui/` holds rust-ui style primitives; `components/` holds views. |
 | `packaging/` | Recipes for every package manager (deb, rpm, pacman, snap, flatpak, scoop, chocolatey, alpine, nix, winget, homebrew). |
 | `locales/` | Translations: `translations.tsv` is the source of truth, `scripts/gen-locales.py` expands it. |

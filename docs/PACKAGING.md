@@ -127,6 +127,18 @@ The remaining prerequisite for the *store* channels (Flathub, homebrew-cask
 upstream, the Snap store's non-snap path) is a signing certificate or an account,
 not bundling.
 
+## Browser native-messaging host
+
+`release.yml` builds `rdm-native-host` (Unix targets) and attaches it as
+`rdm-<target>-native-host`. The Linux `.deb` (`build-deb.sh <app> <version>
+<out> <host-bin>`) also installs it to `/usr/lib/rdm/rdm-native-host` and drops
+the three registration manifests — `/etc/opt/chrome/native-messaging-hosts/`,
+`/etc/chromium/native-messaging-hosts/` and
+`/usr/lib/mozilla/native-messaging-hosts/`. For an unpackaged install,
+`scripts/install-browser-host.sh` writes the same manifests per user. The
+extension itself lives in `browser-extension/` (loaded unpacked; store
+submission is a later step).
+
 ## Signing
 
 See [RELEASING.md](./RELEASING.md). Nothing is signed today: no Apple

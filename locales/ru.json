@@ -97,6 +97,8 @@
   "options.scheduler": "Планировщик",
   "options.categories": "Категории",
   "options.browser": "Браузер",
+  "options.browser.enable": "Включить интеграцию с браузером",
+  "options.browser.hint": "Позволяет расширению RDM отправлять ссылки в это приложение (локальный сокет).",
   "options.sounds": "Звуки",
   "options.close": "Закрыть",
   "options.general.theme": "Тема",

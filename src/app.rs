@@ -62,6 +62,31 @@ pub fn App() -> Element {
         crate::state::engine().set_speed_limit(current.speed_limit_kbps as u64 * 1024);
     });
 
+    // Browser integration: serve the local socket the native-messaging host
+    // forwards links to. Runs on the Dioxus tokio runtime; the UI shows new
+    // downloads on its next poll.
+    use_future(move || async move {
+        if !settings::boot().browser_integration {
+            return;
+        }
+        let boot = settings::boot();
+        let options = rdm_core::ipc::ServeOptions {
+            download_dir: boot.download_dir.clone(),
+            organize_by_category: boot.organize_by_category,
+            connections: boot.connections.max(1),
+            queue: boot
+                .queue_names()
+                .into_iter()
+                .next()
+                .unwrap_or_else(|| "Main".to_string()),
+        };
+        let path = rdm_core::ipc::default_socket_path();
+        tracing::info!(?path, "browser integration listening");
+        if let Err(err) = rdm_core::ipc::serve(crate::state::engine(), path, options).await {
+            tracing::warn!(%err, "browser integration stopped");
+        }
+    });
+
     // Scheduler: outside the daily window, pause everything; when it opens
     // again, resume only what the scheduler itself paused.
     use_future(move || async move {

@@ -97,6 +97,8 @@ options.connection	Conexión	Connexion	Verbindung	Conexão	Соединение	
 options.scheduler	Programador	Planificateur	Zeitplan	Agendador	Планировщик	计划任务
 options.categories	Categorías	Catégories	Kategorien	Categorias	Категории	分类
 options.browser	Navegador	Navigateur	Browser	Navegador	Браузер	浏览器
+options.browser.enable	Activar la integración con el navegador	Activer l'intégration au navigateur	Browser-Integration aktivieren	Ativar a integração com o navegador	Включить интеграцию с браузером	启用浏览器集成
+options.browser.hint	Permite que la extensión de RDM envíe enlaces a esta aplicación (escucha en un socket local).	Autorise l'extension RDM à envoyer des liens à cette application (écoute sur un socket local).	Erlaubt der RDM-Erweiterung, Links an diese App zu senden (lauscht auf einem lokalen Socket).	Permite que a extensão do RDM envie links para este aplicativo (escuta em um socket local).	Позволяет расширению RDM отправлять ссылки в это приложение (локальный сокет).	允许 RDM 浏览器扩展将链接发送到此应用（监听本地套接字）。
 options.sounds	Sonidos	Sons	Töne	Sons	Звуки	声音
 options.close	Cerrar	Fermer	Schließen	Fechar	Закрыть	关闭
 options.general.theme	Tema	Thème	Design	Tema	Тема	主题

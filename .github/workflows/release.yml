@@ -94,6 +94,14 @@ jobs:
         shell: bash
         run: dx bundle --desktop --release ${{ matrix.bundle_args }}
 
+      # The browser native-messaging host is a separate small binary. Windows
+      # has no IPC transport yet, so it is built for the Unix targets only.
+      - name: Build the browser native host (unix)
+        if: runner.os != 'Windows'
+        run: |
+          cargo build --release -p rdm-native-host
+          install -m755 target/release/rdm-native-host "rdm-${{ matrix.target }}-native-host"
+
       # ---- macOS: sign + notarise -------------------------------------------
       - name: Import Apple signing certificate
         if: runner.os == 'macOS' && env.APPLE_CERTIFICATE != ''
@@ -160,7 +168,7 @@ jobs:
           VERSION="${GITHUB_REF_NAME#v}"
           APP="$(find target/dx/rdm/release -maxdepth 3 -type d -name app | head -1)"
 
-          bash packaging/linux/build-deb.sh "$APP" "$VERSION" .
+          bash packaging/linux/build-deb.sh "$APP" "$VERSION" . target/release/rdm-native-host
           sha256sum rdm_*.deb > rdm-deb.sha256
 
           sudo apt-get install -y rpm
@@ -227,6 +235,7 @@ jobs:
         with:
           files: |
             rdm-${{ matrix.target }}.*
+            rdm-${{ matrix.target }}-native-host
             rdm_*.deb
             rdm-*.rpm
             rdm-deb.sha256

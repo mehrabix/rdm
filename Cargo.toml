@@ -27,7 +27,7 @@ desktop = ["dioxus/desktop"]
 mobile = ["dioxus/mobile"]
 
 [workspace]
-members = ["crates/rdm-core"]
+members = ["crates/rdm-core", "crates/rdm-native-host"]
 
 [workspace.package]
 version = "0.1.0"

@@ -236,16 +236,7 @@ impl Downloads {
             // Put the file in a per-category subfolder (IDM style). The file name
             // — and therefore the category — is only known after probing.
             if let Ok(info) = engine().probe(&spec).await {
-                let folder = match Category::from_filename(&info.file_name) {
-                    Category::Compressed => "Compressed",
-                    Category::Documents => "Documents",
-                    Category::Music => "Music",
-                    Category::Programs => "Programs",
-                    Category::Video => "Video",
-                    Category::Images => "Images",
-                    Category::Other => "Other",
-                };
-                let target = spec.output_dir.join(folder);
+                let target = spec.output_dir.join(Category::from_filename(&info.file_name).folder());
                 let _ = tokio::fs::create_dir_all(&target).await;
                 spec.output_dir = target;
             }

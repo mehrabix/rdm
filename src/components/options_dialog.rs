@@ -94,6 +94,7 @@ pub fn OptionsDialog(state: Downloads) -> Element {
                             Tab::Downloads => rsx! { DownloadsTab {} },
                             Tab::Connection => rsx! { ConnectionTab {} },
                             Tab::Scheduler => rsx! { SchedulerTab {} },
+                            Tab::Browser => rsx! { BrowserTab {} },
                             Tab::About => rsx! { AboutTab {} },
                             other => rsx! { StubTab { tab: other } },
                         }
@@ -245,6 +246,24 @@ fn ConnectionTab() -> Element {
                 }
             }
             p { class: "text-xs text-muted-foreground", "{limit_hint}" }
+        }
+    }
+}
+
+#[component]
+fn BrowserTab() -> Element {
+    let t = use_t();
+    let settings = use_settings();
+    let current = settings.get();
+    let hint = t("options.browser.hint");
+    rsx! {
+        div { class: "flex flex-col gap-5",
+            Toggle {
+                label: t("options.browser.enable"),
+                checked: current.browser_integration,
+                onchange: move |value: bool| settings.update(|s| s.browser_integration = value),
+            }
+            p { class: "text-xs text-muted-foreground", "{hint}" }
         }
     }
 }
