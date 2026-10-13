@@ -110,6 +110,7 @@
   "options.downloads.connections": "每个下载的连接数",
   "options.downloads.max_concurrent": "最大并行下载数",
   "options.downloads.launch_on_complete": "完成后打开文件",
+  "options.downloads.clipboard_monitor": "监视剪贴板中的链接",
   "options.connection.speed_limit": "限速 (KB/s)",
   "options.connection.speed_limit_hint": "0 表示不限速，立即生效。",
   "options.scheduler.enabled": "仅在时间段内下载",

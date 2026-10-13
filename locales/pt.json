@@ -110,6 +110,7 @@
   "options.downloads.connections": "Conexões por download",
   "options.downloads.max_concurrent": "Downloads simultâneos máximos",
   "options.downloads.launch_on_complete": "Abrir o arquivo ao concluir",
+  "options.downloads.clipboard_monitor": "Observar a área de transferência para links",
   "options.connection.speed_limit": "Limite de velocidade (KB/s)",
   "options.connection.speed_limit_hint": "0 = ilimitado. Aplicado na hora.",
   "options.scheduler.enabled": "Baixar apenas em um intervalo",

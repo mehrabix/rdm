@@ -110,6 +110,7 @@
   "options.downloads.connections": "Connexions par téléchargement",
   "options.downloads.max_concurrent": "Téléchargements simultanés max.",
   "options.downloads.launch_on_complete": "Ouvrir le fichier à la fin",
+  "options.downloads.clipboard_monitor": "Surveiller le presse-papiers pour les liens",
   "options.connection.speed_limit": "Limite de débit (Ko/s)",
   "options.connection.speed_limit_hint": "0 = illimité. Appliqué immédiatement.",
   "options.scheduler.enabled": "Télécharger seulement dans une plage",

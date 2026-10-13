@@ -110,6 +110,7 @@
   "options.downloads.connections": "Verbindungen pro Download",
   "options.downloads.max_concurrent": "Max. gleichzeitige Downloads",
   "options.downloads.launch_on_complete": "Datei danach öffnen",
+  "options.downloads.clipboard_monitor": "Zwischenablage auf Links überwachen",
   "options.connection.speed_limit": "Geschwindigkeit (KB/s)",
   "options.connection.speed_limit_hint": "0 = unbegrenzt. Wirkt sofort.",
   "options.scheduler.enabled": "Nur im Zeitfenster laden",

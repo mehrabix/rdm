@@ -110,6 +110,7 @@
   "options.downloads.connections": "اتصالها بهازای هر دانلود",
   "options.downloads.max_concurrent": "بیشترین دانلود همزمان",
   "options.downloads.launch_on_complete": "باز کردن فایل پس از تکمیل",
+  "options.downloads.clipboard_monitor": "پایش کلیپبورد برای نشانیها",
   "options.connection.speed_limit": "محدودیت سرعت (KB/s)",
   "options.connection.speed_limit_hint": "۰ = نامحدود. بیدرنگ اعمال میشود.",
   "options.scheduler.enabled": "فقط در بازهٔ زمانی روزانه دانلود کن",

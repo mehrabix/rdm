@@ -78,6 +78,8 @@ pub struct Settings {
     pub queues: Vec<QueueDef>,
     /// Serve the local socket the browser extension sends links to.
     pub browser_integration: bool,
+    /// Watch the clipboard and auto-queue copied http(s) links.
+    pub clipboard_monitor: bool,
 }
 
 impl Default for Settings {
@@ -98,6 +100,7 @@ impl Default for Settings {
             schedule_stop: "07:00".to_string(),
             queues: vec![QueueDef::default()],
             browser_integration: true,
+            clipboard_monitor: true,
         }
     }
 }

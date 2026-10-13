@@ -222,6 +222,11 @@ fn DownloadsTab() -> Element {
                 checked: current.launch_on_complete,
                 onchange: move |value: bool| settings.update(|s| s.launch_on_complete = value),
             }
+            Toggle {
+                label: t("options.downloads.clipboard_monitor"),
+                checked: current.clipboard_monitor,
+                onchange: move |value: bool| settings.update(|s| s.clipboard_monitor = value),
+            }
         }
     }
 }

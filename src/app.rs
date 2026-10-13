@@ -62,6 +62,30 @@ pub fn App() -> Element {
         crate::state::engine().set_speed_limit(current.speed_limit_kbps as u64 * 1024);
     });
 
+    // Clipboard monitor: copying a link queues it (IDM's clipboard capture).
+    use_future(move || async move {
+        let mut last: Option<String> = None;
+        loop {
+            tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
+            let current = settings.read().clone();
+            if !current.clipboard_monitor {
+                last = None;
+                continue;
+            }
+            let text = tokio::task::spawn_blocking(crate::state::clipboard_text)
+                .await
+                .unwrap_or_default();
+            let trimmed = text.trim().to_string();
+            let is_new = last.as_deref() != Some(trimmed.as_str());
+            last = Some(trimmed.clone());
+            let looks_like_url =
+                trimmed.starts_with("http://") || trimmed.starts_with("https://");
+            if is_new && looks_like_url {
+                state.add(trimmed, current.download_dir.clone(), current.organize_by_category);
+            }
+        }
+    });
+
     // Browser integration: serve the local socket the native-messaging host
     // forwards links to. Runs on the Dioxus tokio runtime; the UI shows new
     // downloads on its next poll.

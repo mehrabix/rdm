@@ -119,6 +119,7 @@
   "options.downloads.connections": "Connections per download",
   "options.downloads.max_concurrent": "Maximum concurrent downloads",
   "options.downloads.launch_on_complete": "Open the file when it completes",
+  "options.downloads.clipboard_monitor": "Watch the clipboard for links",
   "options.connection.speed_limit": "Speed limit (KB/s)",
   "options.connection.speed_limit_hint": "0 = unlimited. Applies to all transfers immediately.",
   "options.scheduler.enabled": "Only transfer during a daily window",

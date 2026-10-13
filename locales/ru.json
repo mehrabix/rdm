@@ -110,6 +110,7 @@
   "options.downloads.connections": "Соединений на загрузку",
   "options.downloads.max_concurrent": "Максимум одновременных",
   "options.downloads.launch_on_complete": "Открыть файл после загрузки",
+  "options.downloads.clipboard_monitor": "Следить за буфером обмена",
   "options.connection.speed_limit": "Ограничение (КБ/с)",
   "options.connection.speed_limit_hint": "0 = без ограничений.",
   "options.scheduler.enabled": "Загружать только в окне",
