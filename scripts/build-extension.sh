@@ -16,6 +16,8 @@ SRC="$ROOT/browser-extension"
 OUT="${1:?usage: build-extension.sh <out-dir> [key.pem]}"
 KEY="${2:-}"
 mkdir -p "$OUT"
+# Absolute: the zips are built from inside other directories.
+OUT="$(cd "$OUT" && pwd)"
 
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT

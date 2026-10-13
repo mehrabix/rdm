@@ -20,3 +20,7 @@ pnpm-lock.yaml
 !.vscode/extensions.json
 .idea
 .DS_Store
+
+# extension packages built from browser-extension/
+/rdm-extension-*
+/browser-extension.crx
