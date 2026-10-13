@@ -85,6 +85,10 @@ pub fn download_args(url: &str, template: &Path, opts: &Options<'_>) -> Vec<Stri
     if let Some(js) = opts.js_runtime.filter(|v| !v.is_empty()) {
         args.push("--js-runtimes".to_string());
         args.push(js.to_string());
+        // YouTube's signature/`n` challenge solver. Without it yt-dlp reports
+        // "Signature solving failed" / "The page needs to be reloaded".
+        args.push("--remote-components".to_string());
+        args.push("ejs:github".to_string());
     }
     if let Some(browser) = opts.cookies_from_browser.filter(|v| !v.is_empty()) {
         args.push("--cookies-from-browser".to_string());
@@ -150,6 +154,14 @@ mod tests {
         let args = download_args("u", Path::new("t"), &opts);
         assert!(args.windows(2).any(|w| w == ["--cookies-from-browser", "chrome"]));
         assert!(args.windows(2).any(|w| w == ["--js-runtimes", "node:/usr/bin/node"]));
+        // The JS runtime also needs the challenge-solver component.
+        assert!(args.windows(2).any(|w| w == ["--remote-components", "ejs:github"]));
+    }
+
+    #[test]
+    fn no_remote_components_without_a_js_runtime() {
+        let args = download_args("u", Path::new("t"), &Options::default());
+        assert!(!args.iter().any(|a| a == "--remote-components"));
     }
 
     #[test]
