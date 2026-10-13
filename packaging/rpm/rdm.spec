@@ -55,5 +55,5 @@ DESKTOP
 %{_datadir}/icons/hicolor/256x256/apps/rdm.png
 
 %changelog
-* Mon Oct 13 2026 mehrabix <mehrabi@post.com> - 0.1.0-1
+* Tue Oct 13 2026 mehrabix <mehrabi@post.com> - 0.1.0-1
 - Initial package

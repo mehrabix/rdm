@@ -166,6 +166,8 @@ jobs:
           TOP="$RUNNER_TEMP/rpmbuild"
           mkdir -p "$TOP"/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
           cp assets/icon-256.png "$TOP/SOURCES/rdm.png"
+          # rpmbuild does not download Source URLs; hand it the tarball we built.
+          cp "rdm-${{ matrix.target }}.tar.gz" "$TOP/SOURCES/"
           sed "s/^Version:.*/Version:        $VERSION/" packaging/rpm/rdm.spec > "$TOP/SPECS/rdm.spec"
           rpmbuild --define "_topdir $TOP" -bb "$TOP/SPECS/rdm.spec"
           find "$TOP/RPMS" -name '*.rpm' -exec cp {} . \;
