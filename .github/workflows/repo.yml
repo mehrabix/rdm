@@ -96,8 +96,12 @@ jobs:
       - name: Publish the public key
         run: |
           mkdir -p public
-          gpg --armor --export "$KEYID" > public/rdm.gpg
-          cp public/rdm.gpg packaging/rdm-archive-key.asc
+          # apt's `signed-by` requires a *binary* keyring — publishing the armored
+          # form here makes apt warn "unsupported filetype" and refuse the repo.
+          gpg --export "$KEYID" > public/rdm.gpg
+          # Keep the armored copy for dnf/zypper and for humans to inspect.
+          gpg --armor --export "$KEYID" > public/rdm.asc
+          cp public/rdm.asc packaging/rdm-archive-key.asc
 
       - name: Publish to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
