@@ -32,18 +32,15 @@
   "menu.help": "Help",
   "menu.help.about": "About RDM",
   "menu.help.docs": "Documentation",
-
   "theme.light": "Light",
   "theme.dark": "Dark",
   "theme.system": "System",
-
   "toolbar.new": "New",
   "toolbar.resume": "Resume",
   "toolbar.pause": "Pause",
   "toolbar.remove": "Remove",
   "toolbar.options": "Options",
   "toolbar.search": "Search downloads…",
-
   "sidebar.all": "All downloads",
   "sidebar.active": "Active",
   "sidebar.queued": "Queued",
@@ -56,11 +53,9 @@
   "sidebar.video": "Video",
   "sidebar.images": "Images",
   "sidebar.other": "Other",
-
   "status.active": "active",
   "status.queued": "queued",
   "status.total": "Total:",
-
   "table.file": "File",
   "table.size": "Size",
   "table.progress": "Progress",
@@ -69,7 +64,6 @@
   "table.actions": "Actions",
   "table.empty_title": "No downloads here yet",
   "table.empty_hint": "Click “New” to paste a URL and start downloading.",
-
   "dl.queued": "Queued",
   "dl.probing": "Probing",
   "dl.downloading": "Downloading",
@@ -77,7 +71,6 @@
   "dl.done": "Done",
   "dl.failed": "Failed",
   "dl.cancelled": "Cancelled",
-
   "add.title": "New download",
   "add.subtitle": "RDM will probe the URL and split it into parallel connections.",
   "add.url": "URL",
@@ -92,13 +85,11 @@
   "queue.start": "Start",
   "queue.stop": "Stop",
   "add.start": "Start download",
-
   "batch.title": "Batch import",
   "batch.subtitle": "Paste URLs (one per line), or the path to a .txt file.",
   "batch.placeholder": "https://example.com/a.zip\nhttps://example.com/b.iso",
   "batch.queue": "Queue URLs",
   "batch.none": "No http(s) URLs found.",
-
   "options.title": "Options",
   "options.general": "General",
   "options.downloads": "Downloads",
@@ -127,7 +118,25 @@
   "options.scheduler.stop": "Stop at",
   "options.scheduler.hint": "Outside the window, running transfers are paused and automatically resume when it opens again.",
   "options.coming_soon": "Coming in a later phase.",
-
   "about.title": "About RDM",
-  "about.description": "A fast, resumable, multi-connection download manager for Linux."
+  "about.description": "A fast, resumable, multi-connection download manager for Linux.",
+  "grab.title": "Site grabber",
+  "grab.subtitle": "Collect the files a page links to",
+  "grab.url": "Page URL",
+  "grab.url_placeholder": "https://example.com/gallery/",
+  "grab.depth": "Follow links",
+  "grab.depth_hint": "0 = this page only",
+  "grab.include": "Include",
+  "grab.exclude": "Exclude",
+  "grab.filters_hint": "Globs, space separated, e.g. *.mp4 */video/*",
+  "grab.same_origin": "Stay on this site",
+  "grab.scan": "Scan",
+  "grab.scanning": "Scanning…",
+  "grab.found": "Files found",
+  "grab.empty": "Nothing found yet — enter a page and scan.",
+  "grab.none": "No matches. Widen the filters or increase the depth.",
+  "grab.select_all": "Select all",
+  "grab.select_none": "Select none",
+  "grab.download": "Download selected",
+  "grab.error_url": "Enter a page URL to scan."
 }

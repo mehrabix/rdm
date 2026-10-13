@@ -120,3 +120,22 @@ options.scheduler.hint	Fuera de la franja, las descargas se pausan y se reanudan
 options.coming_soon	Disponible en una fase posterior.	Disponible dans une phase ultérieure.	Kommt in einer späteren Phase.	Disponível em uma fase posterior.	Появится на следующем этапе.	将在后续阶段推出。	در مرحلهٔ بعدی ارائه میشود.
 about.title	Acerca de RDM	À propos de RDM	Über RDM	Sobre o RDM	О программе RDM	关于 RDM	دربارهٔ RDM
 about.description	Un gestor de descargas rápido, reanudable y multiconexión para Linux.	Un gestionnaire de téléchargements rapide, reprenable et multi-connexions pour Linux.	Ein schneller, fortsetzbarer Multi-Verbindungs-Download-Manager für Linux.	Um gerenciador de downloads rápido, retomável e multiconexão para Linux.	Быстрый менеджер загрузок с докачкой и несколькими соединениями для Linux.	快速、可续传、多连接的 Linux 下载管理器。	یک مدیر دانلود سریع، قابلادامه و چنداتصالی برای لینوکس.
+grab.title	Capturador de sitios	Collecteur de site	Website-Sammler	Coletor de site	Сборщик сайта	站点抓取	برداشت‌کننده سایت
+grab.subtitle	Recoge los archivos a los que enlaza una página	Rassemble les fichiers vers lesquels une page pointe	Sammelt die Dateien, auf die eine Seite verlinkt	Coleta os arquivos para os quais uma página aponta	Собирает файлы, на которые ссылается страница	收集页面链接的文件	فایل‌هایی که یک صفحه به آن‌ها پیوند می‌دهد را جمع می‌کند
+grab.url	URL de la página	URL de la page	Seiten-URL	URL da página	URL страницы	页面网址	نشانی صفحه
+grab.url_placeholder	https://ejemplo.com/galeria/	https://exemple.com/galerie/	https://beispiel.de/galerie/	https://exemplo.com/galeria/	https://example.com/gallery/	https://example.com/gallery/	https://example.com/gallery/
+grab.depth	Seguir enlaces	Suivre les liens	Links folgen	Seguir links	Переходить по ссылкам	跟随链接	پیگیری پیوندها
+grab.depth_hint	0 = solo esta página	0 = cette page seulement	0 = nur diese Seite	0 = apenas esta página	0 = только эта страница	0 = 仅当前页面	۰ = فقط همین صفحه
+grab.include	Incluir	Inclure	Einschließen	Incluir	Включить	包含	شامل
+grab.exclude	Excluir	Exclure	Ausschließen	Excluir	Исключить	排除	مستثنی
+grab.filters_hint	Patrones separados por espacios, p. ej. *.mp4 */video/*	Motifs glob séparés par des espaces, p. ex. *.mp4 */video/*	Globs, durch Leerzeichen getrennt, z. B. *.mp4 */video/*	Padrões glob separados por espaços, ex. *.mp4 */video/*	Шаблоны через пробел, например *.mp4 */video/*	通配符，空格分隔，例如 *.mp4 */video/*	الگوها با فاصله جدا می‌شوند، مثلاً *.mp4 */video/*
+grab.same_origin	Quedarse en este sitio	Rester sur ce site	Auf dieser Website bleiben	Ficar neste site	Оставаться на этом сайте	仅限本站	ماندن در همین سایت
+grab.scan	Explorar	Analyser	Scannen	Analisar	Сканировать	扫描	بررسی
+grab.scanning	Explorando…	Analyse…	Scanne…	Analisando…	Сканирование…	扫描中…	در حال بررسی…
+grab.found	Archivos encontrados	Fichiers trouvés	Gefundene Dateien	Arquivos encontrados	Найдено файлов	找到的文件	فایل‌های یافت‌شده
+grab.empty	Aún no hay nada: introduce una página y explora.	Rien trouvé pour l'instant — saisissez une page et lancez l'analyse.	Noch nichts gefunden — Seite eingeben und scannen.	Nada encontrado ainda — informe uma página e analise.	Пока ничего не найдено — введите страницу и запустите поиск.	尚未找到任何内容——请输入页面并扫描。	چیزی پیدا نشد — نشانی یک صفحه را وارد و بررسی کنید.
+grab.none	Sin resultados. Amplía los filtros o aumenta la profundidad.	Aucun résultat. Élargissez les filtres ou augmentez la profondeur.	Keine Treffer. Filter erweitern oder Tiefe erhöhen.	Nenhum resultado. Amplie os filtros ou aumente a profundidade.	Совпадений нет. Расширьте фильтры или увеличьте глубину.	没有匹配项。请放宽过滤条件或增加深度。	موردی یافت نشد. فیلترها را گسترده‌تر کنید یا عمق را افزایش دهید.
+grab.select_all	Seleccionar todo	Tout sélectionner	Alle auswählen	Selecionar tudo	Выбрать все	全选	انتخاب همه
+grab.select_none	No seleccionar nada	Ne rien sélectionner	Keine auswählen	Limpar seleção	Снять выбор	全不选	حذف انتخاب
+grab.download	Descargar seleccionados	Télécharger la sélection	Auswahl herunterladen	Baixar selecionados	Скачать выбранные	下载所选	دانلود موارد انتخاب‌شده
+grab.error_url	Introduce una URL de página para explorar.	Saisissez l'URL d'une page à analyser.	Eine Seiten-URL zum Scannen eingeben.	Informe a URL de uma página para analisar.	Введите URL страницы для сканирования.	请输入要扫描的页面网址。	نشانی یک صفحه برای بررسی وارد کنید.

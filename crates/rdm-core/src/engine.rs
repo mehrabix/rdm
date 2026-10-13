@@ -5,7 +5,7 @@
 //! parallel *downloads* than configured, while each download fans out into up
 //! to `connections` parallel *segments*.
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::io::SeekFrom;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex as StdMutex};
@@ -23,6 +23,7 @@ use tracing::debug;
 use url::Url;
 
 use crate::error::{Error, Result};
+use crate::grabber::{self, Found, FoundKind, GrabOptions};
 use crate::http::{self, RequestOptions};
 use crate::rate::RateLimiter;
 use crate::media;
@@ -345,6 +346,65 @@ impl DownloadManager {
         Ok(ytdlp::parse_heights(&String::from_utf8_lossy(&output.stdout)))
     }
 
+    /// Crawl a site and collect the links worth downloading (site grabber).
+    /// Pages are followed up to `opts.depth` deep. With `opts.same_origin` (the
+    /// default) both crawling *and* collection stay on the start URL's origin,
+    /// so a grab never wanders off-site; turn it off to include CDNs.
+    pub async fn grab_site(&self, start: &str, opts: GrabOptions) -> Result<Vec<Found>> {
+        let base = Url::parse(start).map_err(|_| Error::invalid("that is not a valid URL"))?;
+        if !matches!(base.scheme(), "http" | "https") {
+            return Err(Error::invalid("only http(s) URLs are supported"));
+        }
+        let origin = base.origin();
+        let request = RequestOptions::default();
+
+        let mut queue: VecDeque<(Url, u8)> = VecDeque::from([(base, 0)]);
+        let mut seen: HashSet<String> = HashSet::new();
+        let mut found: Vec<Found> = Vec::new();
+
+        while let Some((page, depth)) = queue.pop_front() {
+            if found.len() >= opts.limit {
+                break;
+            }
+            if !seen.insert(page.as_str().to_string()) {
+                continue;
+            }
+            // A page that will not load is skipped, not fatal: grabs run over
+            // whole sites and dead links are normal.
+            let Ok(html) = http::fetch_text(&self.client, page.as_str(), &request).await else {
+                continue;
+            };
+            for link in grabber::extract_links(&html, &page) {
+                let kind = grabber::classify(&link);
+                let on_origin = link.origin() == origin;
+                if opts.same_origin && !on_origin {
+                    continue;
+                }
+                match kind {
+                    FoundKind::Page => {
+                        // A page is marked seen when it is *processed*, never
+                        // when it is discovered — otherwise queuing it would
+                        // also skip it.
+                        if depth < opts.depth {
+                            queue.push_back((link, depth + 1));
+                        }
+                    }
+                    _ => {
+                        if seen.insert(link.as_str().to_string()) {
+                            found.push(Found {
+                                url: link.as_str().to_string(),
+                                kind,
+                            });
+                        }
+                    }
+                }
+            }
+        }
+
+        tracing::info!(%start, found = found.len(), "site grab finished");
+        Ok(grabber::select(&found, &opts))
+    }
+
     /// Queue and start a transfer. Returns the new id *immediately* — the probe
     /// and segment plan happen in the background, so the UI never stalls on a
     /// slow server.
@@ -373,6 +433,11 @@ impl DownloadManager {
         // benefits without the caller having to say so.
         if spec.kind == DownloadKind::File && media::is_hls_url(&spec.url) {
             spec.kind = DownloadKind::Hls;
+        }
+        // A DASH manifest describes the streams rather than being one, and
+        // yt-dlp assembles it — never save the XML as if it were the video.
+        if spec.kind == DownloadKind::File && media::is_dash_url(&spec.url) {
+            spec.kind = DownloadKind::Ytdlp;
         }
 
         // A provisional name from the URL gives the row something to show until
@@ -442,16 +507,17 @@ impl DownloadManager {
             "probe ok"
         );
 
-        // A web page is not a file: handing it to the file downloader would save
-        // the HTML/PHP. Re-route to yt-dlp, or fail with a clear message.
-        let is_html = remote
-            .content_type
-            .as_deref()
-            .map(|ct| ct.starts_with("text/html") || ct.contains("xhtml"))
-            .unwrap_or(false);
-        if is_html && !ytdlp::is_available() {
+        // A web page (or a DASH manifest) is not a file: handing it to the file
+        // downloader would save the HTML/PHP/XML. Re-route to yt-dlp, which
+        // assembles the streams, or fail with a clear message.
+        let content_type = remote.content_type.clone().unwrap_or_default();
+        let is_html = content_type.starts_with("text/html") || content_type.contains("xhtml");
+        let is_dash = media::is_dash_content_type(&content_type);
+        // An HLS playlist served without a `.m3u8` name still needs assembling.
+        let is_hls = spec.kind != DownloadKind::Hls && media::is_hls_content_type(&content_type);
+        if (is_html || is_dash) && !ytdlp::is_available() {
             return Err(Error::invalid(
-                "that URL is a web page, not a media file — install yt-dlp to download the video",
+                "that URL is a web page or a streaming manifest, not a media file — install yt-dlp to download the video",
             ));
         }
 
@@ -475,6 +541,12 @@ impl DownloadManager {
         } else {
             spec.file_name.clone().unwrap_or(provisional)
         };
+        // A playlist is assembled into an MPEG-TS file, not saved as a playlist.
+        let chosen = if is_hls {
+            format!("{}.ts", chosen.trim_end_matches(".m3u8"))
+        } else {
+            chosen
+        };
         let unique = util::unique_path(&spec.output_dir, &chosen);
         let final_name = unique
             .file_name()
@@ -491,8 +563,10 @@ impl DownloadManager {
 
         let mut tasks = self.tasks.write().await;
         if let Some(task) = tasks.get_mut(id) {
-            if is_html {
+            if is_html || is_dash {
                 task.spec.kind = DownloadKind::Ytdlp;
+            } else if is_hls {
+                task.spec.kind = DownloadKind::Hls;
             }
             task.spec.file_name = Some(final_name);
             task.spec.output_dir = output_dir;
@@ -773,6 +847,17 @@ impl DownloadManager {
                 single.store(written, Ordering::Relaxed);
             }
             file.flush().await?;
+            // Assembled HLS is MPEG-TS; copy the streams into an MP4 so the
+            // result plays anywhere. Falls back to the `.ts` if ffmpeg is absent.
+            if let Some(remuxed) = remux_to_mp4(&out_path).await {
+                if let Some(name) = remuxed.file_name().and_then(|n| n.to_str()) {
+                    let name = name.to_string();
+                    let mut tasks = self.tasks.write().await;
+                    if let Some(task) = tasks.get_mut(id) {
+                        task.spec.file_name = Some(name);
+                    }
+                }
+            }
             Ok(())
         }
         .await;
@@ -1296,6 +1381,31 @@ async fn preallocate(path: &Path, total: u64) -> Result<()> {
     let file = OpenOptions::new().write(true).create(true).open(path).await?;
     file.set_len(total).await?;
     Ok(())
+}
+
+/// Remux an MPEG-TS stream into `.mp4` (stream copy, no re-encode) when ffmpeg
+/// is available. Returns the new path, or `None` — leaving the `.ts` — if the
+/// copy fails, since a playable TS beats a broken MP4.
+async fn remux_to_mp4(path: &Path) -> Option<PathBuf> {
+    let ffmpeg = util::find_executable("ffmpeg")?;
+    let target = path.with_extension("mp4");
+    let status = tokio::process::Command::new(ffmpeg)
+        .args(["-y", "-loglevel", "error", "-i"])
+        .arg(path)
+        .args(["-c", "copy", "-bsf:a", "aac_adtstoasc"])
+        .arg(&target)
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .await
+        .ok()?;
+    if !status.success() || tokio::fs::metadata(&target).await.is_err() {
+        let _ = tokio::fs::remove_file(&target).await;
+        return None;
+    }
+    let _ = tokio::fs::remove_file(path).await;
+    Some(target)
 }
 
 /// yt-dlp's last stderr line, plus an actionable hint when we have one.

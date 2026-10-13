@@ -1,5 +1,6 @@
 mod app;
 mod components;
+mod font;
 mod i18n;
 mod settings;
 mod state;
@@ -38,8 +39,11 @@ fn main() {
     // webview paints the raw DOM first. `custom_head` is part of the HTML the
     // webview parses, so the styles are already applied at first paint.
     let head = format!(
-        "<style>{}</style>",
-        include_str!("../assets/tailwind.css")
+        "<style>{}{}</style>",
+        include_str!("../assets/tailwind.css"),
+        // The bundled Vazirmatn face + the base font rule, after Tailwind so it
+        // wins over preflight.
+        font::stylesheet()
     );
 
     let config = Config::new()

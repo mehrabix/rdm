@@ -91,6 +91,21 @@ pub fn unique_path(dir: &Path, name: &str) -> PathBuf {
     dir.join(name)
 }
 
+/// Locate an executable: the usual system directories first, then `PATH`.
+/// A desktop launch has a minimal `PATH`, so the fixed directories matter.
+pub fn find_executable(name: &str) -> Option<PathBuf> {
+    let mut dirs: Vec<PathBuf> = ["/usr/local/bin", "/usr/bin", "/bin", "/snap/bin", "/opt/homebrew/bin"]
+        .into_iter()
+        .map(PathBuf::from)
+        .collect();
+    if let Some(path) = std::env::var_os("PATH") {
+        dirs.extend(std::env::split_paths(&path));
+    }
+    dirs.into_iter()
+        .map(|dir| dir.join(name))
+        .find(|candidate| candidate.is_file())
+}
+
 /// Default download directory: `$HOME/Downloads`, else the current directory.
 pub fn default_download_dir() -> PathBuf {
     if let Some(home) = std::env::var_os("HOME") {

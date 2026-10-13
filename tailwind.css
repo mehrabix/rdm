@@ -36,6 +36,11 @@
   --color-info-foreground: oklch(0.99 0.01 245);
 
   --radius: 0.625rem;
+
+  /* The bundled Vazirmatn family (see `src/font.rs`): Latin + Arabic script in
+   * one face, so the RTL locales use the same font as the rest of the UI. */
+  --font-sans: "Vazirmatn", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    Roboto, "Noto Sans", "Noto Naskh Arabic", sans-serif;
 }
 
 .dark {

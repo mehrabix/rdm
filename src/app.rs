@@ -1,8 +1,8 @@
 use dioxus::prelude::*;
 
 use crate::components::{
-    AddDialog, BatchDialog, DetailPanel, MenuBar, OptionsDialog, Sidebar, StatusBar, Toolbar,
-    TransferTable, Tray,
+    AddDialog, BatchDialog, DetailPanel, GrabDialog, MenuBar, OptionsDialog, Sidebar, StatusBar,
+    Toolbar, TransferTable, Tray,
 };
 use crate::i18n::{provide_settings, use_i18n};
 use crate::settings;
@@ -163,6 +163,9 @@ pub fn App() -> Element {
             }
             if options_open() {
                 OptionsDialog { state }
+            }
+            if *state.show_grab.read() {
+                GrabDialog { state }
             }
         }
     }

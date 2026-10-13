@@ -7,7 +7,7 @@ use std::time::Duration;
 
 use dioxus::prelude::*;
 use rdm_core::{
-    Category, DownloadManager, DownloadSpec, DownloadStatus, DownloadTask, EngineConfig,
+    Category, DownloadManager, DownloadSpec, DownloadStatus, DownloadTask, EngineConfig, Found,
 };
 
 use crate::settings;
@@ -116,6 +116,12 @@ pub struct Downloads {
     pub connections: Signal<u8>,
     /// Queue new downloads are assigned to.
     pub queue: Signal<String>,
+    /// Site grabber: the dialog, its results, and the ticked URLs.
+    pub show_grab: Signal<bool>,
+    pub grab_results: Signal<Vec<Found>>,
+    pub grab_selected: Signal<Vec<String>>,
+    pub grab_busy: Signal<bool>,
+    pub grab_error: Signal<Option<String>>,
 }
 
 impl Downloads {
@@ -175,6 +181,40 @@ impl Downloads {
 
     pub fn close_add(&self) {
         set(self.show_add, false);
+    }
+
+    // ---- site grabber ----------------------------------------------------
+
+    pub fn open_grab(&self) {
+        set(self.show_grab, true);
+    }
+
+    pub fn close_grab(&self) {
+        set(self.show_grab, false);
+    }
+
+    /// Tick or untick one grabbed URL.
+    pub fn toggle_grab(&self, url: String) {
+        let mut selected = self.grab_selected;
+        let mut current = selected.read().clone();
+        match current.iter().position(|item| *item == url) {
+            Some(index) => {
+                current.remove(index);
+            }
+            None => current.push(url),
+        }
+        selected.set(current);
+    }
+
+    /// Tick everything, or nothing.
+    pub fn select_all_grab(&self, all: bool) {
+        let urls: Vec<String> = self
+            .grab_results
+            .read()
+            .iter()
+            .map(|item| item.url.clone())
+            .collect();
+        set(self.grab_selected, if all { urls } else { Vec::new() });
     }
 
     pub fn open_options(&self) {
@@ -469,6 +509,11 @@ pub fn use_downloads() -> Downloads {
     let show_add = use_signal(|| false);
     let show_batch = use_signal(|| false);
     let show_options = use_signal(|| false);
+    let show_grab = use_signal(|| false);
+    let grab_results = use_signal(Vec::<Found>::new);
+    let grab_selected = use_signal(Vec::<String>::new);
+    let grab_busy = use_signal(|| false);
+    let grab_error = use_signal(|| None::<String>);
     let connections = use_signal(|| settings::boot().connections.max(1));
     let queue = use_signal(|| {
         settings::boot()
@@ -514,6 +559,11 @@ pub fn use_downloads() -> Downloads {
         show_add,
         show_batch,
         show_options,
+        show_grab,
+        grab_results,
+        grab_selected,
+        grab_busy,
+        grab_error,
         connections,
         queue,
     }

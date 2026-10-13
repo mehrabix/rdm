@@ -10,6 +10,7 @@
 
 pub mod error;
 pub mod format;
+pub mod grabber;
 pub mod http;
 pub mod ipc;
 pub mod media;
@@ -25,6 +26,7 @@ mod engine;
 
 pub use engine::{DownloadManager, EngineConfig, EngineEvent};
 pub use error::{Error, Result};
+pub use grabber::{Found, FoundKind, GrabOptions};
 pub use rate::RateLimiter;
 pub use types::{
     Category, DownloadKind, DownloadSpec, DownloadStatus, DownloadTask, ProgressUpdate, RemoteInfo,

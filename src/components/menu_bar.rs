@@ -44,7 +44,7 @@ pub fn MenuBar(state: Downloads) -> Element {
                 Item { label: t("menu.tasks.stop_queue"), onclick: { let state = state; let open = open; move |_| { state.pause_all(); close(open); } } }
                 Sep {}
                 Item { label: t("menu.tasks.scheduler"), disabled: true, onclick: move |_| {} }
-                Item { label: t("menu.tasks.grabber"), disabled: true, onclick: move |_| {} }
+                Item { label: t("menu.tasks.grabber"), onclick: { let state = state; let open = open; move |_| { state.open_grab(); close(open); } } }
             }
 
             MenuButton { open, menu: Menu::Downloads, label: t("menu.downloads"),

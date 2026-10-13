@@ -68,6 +68,40 @@ pub fn parse_master(text: &str, base: &Url) -> Vec<Variant> {
     variants
 }
 
+/// Whether a URL names a DASH manifest.
+pub fn is_dash_url(url: &str) -> bool {
+    Url::parse(url)
+        .ok()
+        .map(|parsed| parsed.path().to_ascii_lowercase().ends_with(".mpd"))
+        .unwrap_or(false)
+}
+
+/// The media type of a `Content-Type` header, lowercased and without parameters.
+fn mime(content_type: &str) -> String {
+    content_type
+        .split(';')
+        .next()
+        .unwrap_or("")
+        .trim()
+        .to_ascii_lowercase()
+}
+
+/// Whether a response is an HLS playlist served under a name that says so.
+pub fn is_hls_content_type(content_type: &str) -> bool {
+    matches!(
+        mime(content_type).as_str(),
+        "application/x-mpegurl"
+            | "application/vnd.apple.mpegurl"
+            | "audio/x-mpegurl"
+            | "audio/mpegurl"
+    )
+}
+
+/// Whether a response is a DASH manifest, which `yt-dlp` assembles for us.
+pub fn is_dash_content_type(content_type: &str) -> bool {
+    mime(content_type) == "application/dash+xml"
+}
+
 /// Parse a media playlist into the init segment (if any) plus ordered segments.
 pub fn parse_media(text: &str, base: &Url) -> MediaPlaylist {
     let mut playlist = MediaPlaylist::default();
@@ -110,6 +144,25 @@ mod tests {
         assert!(is_hls_url("https://x/y/master.m3u8"));
         assert!(is_hls_url("https://x/y/master.m3u8?token=1"));
         assert!(!is_hls_url("https://x/y/movie.mp4"));
+    }
+
+    #[test]
+    fn detects_dash_urls() {
+        assert!(is_dash_url("https://x/y/manifest.mpd"));
+        assert!(is_dash_url("https://x/y/manifest.mpd?token=1"));
+        assert!(!is_dash_url("https://x/y/movie.mp4"));
+    }
+
+    #[test]
+    fn classifies_streaming_content_types() {
+        assert!(is_dash_content_type("application/dash+xml"));
+        assert!(is_dash_content_type("application/dash+xml; charset=utf-8"));
+        assert!(!is_dash_content_type("video/mp4"));
+        assert!(is_hls_content_type("application/vnd.apple.mpegurl"));
+        assert!(is_hls_content_type("application/x-mpegURL; charset=utf-8"));
+        assert!(!is_hls_content_type("application/dash+xml"));
+        // Neither is a plain file, so the engine must not save it as one.
+        assert!(!is_dash_content_type("text/html"));
     }
 
     #[test]

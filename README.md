@@ -126,6 +126,7 @@ Archives, Other) when **Organize by category** is on.
 | Per-download limit | Select the row → detail panel → speed limit |
 | Schedule | Options → Scheduler: allow downloads inside a daily time window |
 | Tray menu | Right-click the tray icon: live downloads with percentage, *Pause all*, *Resume all*, *Exit* |
+| Grab a whole site | **Tasks → Site grabber**: enter a page, depth, include/exclude globs, then tick what to download |
 | Theme | Options → Appearance: Dark / Light / System |
 | Language | Options → Appearance — shipped: **en, es, fr, de, pt, ru, zh, fa**. The picker lists only languages that are actually translated; RTL layouts (Persian) switch automatically |
 
@@ -210,6 +211,34 @@ The badges sit at 50% opacity and go fully opaque on hover, so they stay out of
 the way. Cookies are read **only** for the site you're downloading from, and the
 socket accepts `http(s)` URLs only — it can never be asked to run a command.
 
+## Site grabber
+
+**Tasks → Site grabber** crawls a page and collects the files it links to — the
+IDM-style way to pull a whole gallery, archive listing or media directory.
+
+| Control | What it does |
+|---|---|
+| Page URL | Where to start |
+| Follow links | How deep to crawl (`0` = the start page only, max `5`) |
+| Stay on this site | Crawl **and** collect only from the start URL's origin (on by default — turn it off to include CDNs) |
+| Include / Exclude | Globs, space separated: `*.mp4 *.zip`, `*/ads/*`, `*/thumbs/*` |
+| Scan | Crawl and list what it found, with each link classified |
+| Download selected | Queue everything ticked (all results are ticked by default) |
+
+Links are classified as video/audio/image/archive/document by extension, so
+`Include` can be as broad as `*.mp4` or as narrow as `*/video/hd/*`. Pages that
+fail to load are skipped rather than aborting the grab, and the crawl stops
+after 500 results by default.
+
+## Bundled font
+
+The UI ships **Vazirmatn** (`assets/fonts/`, SIL OFL) and uses it everywhere.
+It covers Latin *and* Arabic script in one variable face (weights 100–900), so
+the Persian UI is rendered in the same family as the English one, and it is
+inlined as a `data:` URL by `src/font.rs` — no packaging step can lose it.
+`assets/fonts/` also carries the static weights and the desktop `.ttf`; the
+license and authors file sit alongside them.
+
 ## Troubleshooting
 
 **"Access to the specified native messaging host is forbidden."**
@@ -271,7 +300,9 @@ startup so the UI can't half-switch. Pick one from the list, then restart.
 | winget, AUR, Flathub, Chocolatey | ⬜ accounts/PRs pending |
 | Browser integration: link menu, page popup, video badges + cookies forwarding | ✅ |
 | Browser-extension packaging: `.zip` / signed `.crx` / `.xpi` in every release | ✅ |
-| Media grabber: HLS assembly ✅ + `yt-dlp` bridge ✅ with quality picker (DASH ⬜); site grabber ⬜ | 🟡 |
+| Media grabber: HLS assembly ✅ (remuxed to `.mp4` with ffmpeg) + `yt-dlp` bridge ✅ with quality picker ✅; DASH manifests routed to `yt-dlp` ✅ | ✅ |
+| Site grabber: depth-limited crawl, same-origin collection, include/exclude globs, typed results | ✅ |
+| Bundled Vazirmatn font (Latin + Arabic script) across every locale | ✅ |
 
 The exhaustive IDM-parity matrix and roadmap: [masterplan §9–10](docs/MASTERPLAN.md#9-feature-parity-matrix-vs-idm).
 
@@ -332,6 +363,7 @@ Most Linux download tools either do one stream well (`curl`, `wget`) or wrap
 | `packaging/` | Recipes for every package manager, plus the native-host manifests. |
 | `locales/` | Translations: `translations.tsv` is the source of truth, `scripts/gen-locales.py` expands it. |
 | `scripts/` | `build-extension.sh`, `install-browser-host.sh`, `make-icon.sh`. |
+| `assets/fonts/` | The bundled Vazirmatn family + its OFL license. |
 | `docs/` | MASTERPLAN, PACKAGING, RELEASING. |
 
 ## How RDM downloads a file

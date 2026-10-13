@@ -337,9 +337,9 @@ aim at real parity rather than a guess at what IDM does.
 | Clipboard import (manual menu item) ✅; automatic monitor ⬜ Phase 5 | 🟡 |
 | Batch import (paste a list, or a `.txt` path) | ✅ |
 | Drag & drop links in / downloaded files out | ⬜ Phase 2 |
-| Site spider & grabber (filters, subsets, offline browsing) | ⬜ Phase 4 |
+| Site spider & grabber (filters, subsets, offline browsing) | 🟡 crawl + filters ✅; offline browsing ⬜ |
 | Scheduled / periodic grabber projects | ⬜ Phase 4 |
-| Media grabber: HLS assembly ✅; yt-dlp bridge ✅ + quality picker ✅; DASH ⬜ | 🟡 |
+| Media grabber: HLS assembly ✅ (remuxed to `.mp4`); yt-dlp bridge ✅ + quality picker ✅; DASH routed to yt-dlp ✅ | ✅ |
 | `yt-dlp` bridge for streaming sites | ✅ |
 
 ### Completing a download
@@ -418,13 +418,22 @@ messaging framing and forwards to a running RDM over a Unix socket
 download take-over (Chromium), "Download All", and the Windows named-pipe
 transport.
 
-**Phase 4 — Media & sites** *(HLS + yt-dlp shipped)*
-`rdm-core::media` assembles HLS: a `…​.m3u8` URL is auto-detected, the master
-playlist is followed to the best variant, and the init + media segments are
-concatenated into a `.ts` file. A page whose probe comes back `text/html` is
-handed to `yt-dlp` (`rdm-core::ytdlp`), which covers the long tail of sites — so
-a web page is never saved as a file. Still to do: DASH (MPD) assembly, a quality
-picker, and the scoped site grabber.
+**Phase 4 — Media & sites** *(shipped)*
+`rdm-core::media` assembles HLS: a `…​.m3u8` URL is auto-detected (by name *or*
+`Content-Type`), the master playlist is followed to the best variant, and the
+init + media segments are concatenated. ffmpeg, when present, remuxes the result
+to `.mp4` with `-c copy` so it plays anywhere. A DASH (`…​.mpd` /
+`application/dash+xml`) manifest is handed to `yt-dlp` rather than saved as XML,
+as is any page whose probe comes back `text/html` — a manifest or a web page is
+never saved as if it were the video. `rdm-core::ytdlp` covers the long tail of
+sites, and `qualities()` powers the resolution picker in the app and the browser
+badge (heights from `yt-dlp -J`, downloaded with `bv*[height<=N]+ba/b[…]`).
+
+`rdm-core::grabber` is the scoped site grabber: BFS from a start URL with a
+depth limit, same-origin by default (crawl *and* collection), include/exclude
+globs, a result cap, and links classified into video/audio/image/archive/
+document. The app drives it from **Tasks → Site grabber**. Remaining: offline
+browsing (mirrored pages with rewritten links) and saved grabber projects.
 
 **Phase 5 — Product polish**
 Packaging: `.deb`, `.rpm`, AppImage, `.dmg` and `.msi` are built by CI (see
