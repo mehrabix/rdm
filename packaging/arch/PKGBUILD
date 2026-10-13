@@ -1,0 +1,57 @@
+# Maintainer: mehrabix <mehrabi@post.com>
+#
+# Arch Linux package for the prebuilt RDM release.
+#
+# This is an AUR-style PKGBUILD (`rdm-bin`). To publish:
+#
+#   git clone ssh://aur@aur.archlinux.org/rdm-bin.git
+#   cp PKGBUILD rdm-bin/
+#   updpkgsums && makepkg --printsrcinfo > rdm-bin/.SRCINFO
+#   git -C rdm-bin add . && git commit -m "rdm-bin $(pkgver)" && git push
+#
+pkgname=rdm-bin
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="A fast, resumable, multi-connection download manager (prebuilt release)"
+arch=('x86_64')
+url="https://github.com/mehrabix/rdm"
+license=('MIT')
+# Runtime libraries pulled in by Dioxus' WebKitGTK backend + the tray icon.
+depends=('webkit2gtk-4.1' 'gtk3' 'libayatana-appindicator' 'librsvg')
+provides=('rdm')
+conflicts=('rdm')
+options=('!strip')
+
+source=("rdm-$pkgver.tar.gz::https://github.com/mehrabix/rdm/releases/download/v$pkgver/rdm-linux-x86_64.tar.gz")
+# sha256sums is filled in by `updpkgsums` before publishing.
+sha256sums=('SKIP')
+
+package() {
+  local bin
+  bin="$(find "$srcdir" -type f -name rdm | head -1)"
+
+  install -Dm755 "$bin" "$pkgdir/usr/lib/rdm/rdm"
+
+  install -d "$pkgdir/usr/bin"
+  cat > "$pkgdir/usr/bin/rdm" <<'WRAPPER'
+#!/bin/sh
+exec /usr/lib/rdm/rdm "$@"
+WRAPPER
+  chmod 755 "$pkgdir/usr/bin/rdm"
+
+  install -Dm644 "$(dirname "$bin")/assets/icon-256.png" \
+    "$pkgdir/usr/share/icons/hicolor/256x256/apps/rdm.png" 2>/dev/null || true
+
+  install -d "$pkgdir/usr/share/applications"
+  cat > "$pkgdir/usr/share/applications/rdm.desktop" <<'DESKTOP'
+[Desktop Entry]
+Type=Application
+Name=RDM
+GenericName=Download Manager
+Comment=Rust Download Manager — fast, resumable, multi-connection downloads
+Exec=rdm
+Icon=rdm
+Terminal=false
+Categories=Network;FileTransfer;
+DESKTOP
+}

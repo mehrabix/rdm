@@ -151,6 +151,16 @@ jobs:
             sha256sum "rdm-${{ matrix.target }}.tar.gz" > "rdm-${{ matrix.target }}.tar.gz.sha256"
           fi
 
+      # A real installable Debian package (packaging/linux/build-deb.sh), built
+      # from the release directory rather than relying on `dx bundle`.
+      - name: Build .deb (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          APP="$(find target/dx/rdm/release -maxdepth 3 -type d -name app | head -1)"
+          bash packaging/linux/build-deb.sh "$APP" "$VERSION" .
+          sha256sum rdm_*.deb > rdm_*.deb.sha256
+
       - name: Package (windows)
         if: runner.os == 'Windows'
         shell: pwsh
@@ -171,4 +181,7 @@ jobs:
       - name: Upload to the GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: rdm-${{ matrix.target }}.*
+          files: |
+            rdm-${{ matrix.target }}.*
+            rdm_*.deb
+            rdm_*.deb.sha256

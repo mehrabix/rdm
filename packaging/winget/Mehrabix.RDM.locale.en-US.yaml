@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.6.0.schema.json
+PackageIdentifier: Mehrabix.RDM
+PackageVersion: 0.1.0
+PackageLocale: en-US
+Publisher: mehrabix
+PublisherUrl: https://github.com/mehrabix
+PackageName: RDM
+PackageUrl: https://github.com/mehrabix/rdm
+License: MIT
+LicenseUrl: https://github.com/mehrabix/rdm/blob/main/LICENSE
+ShortDescription: A fast, resumable, multi-connection download manager.
+Description: RDM (Rust Download Manager) splits a file into parallel HTTP range requests, resumes after interruption, and runs native on Linux, Windows and macOS.
+Tags:
+  - download
+  - downloader
+  - download-manager
+  - rust
+ManifestType: defaultLocale
+ManifestVersion: 1.6.0

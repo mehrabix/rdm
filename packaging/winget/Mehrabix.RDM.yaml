@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.version.1.6.0.schema.json
+#
+# winget version manifest for RDM.
+#
+# Publishing: open a PR against github.com/microsoft/winget-pkgs adding
+# manifests/m/Mehrabix/RDM/<version>/ with these three files. Replace the
+# placeholders with the values from the GitHub release:
+#
+#   wingetcreate update Mehrabix.RDM -u <installer-url> -v <version> --submit
+#
+PackageIdentifier: Mehrabix.RDM
+PackageVersion: 0.1.0
+DefaultLocale: en-US
+ManifestType: version
+ManifestVersion: 1.6.0
