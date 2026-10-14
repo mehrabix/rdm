@@ -80,10 +80,57 @@ function targetUrl(element) {
   return /^https?:/i.test(media) ? media : location.href;
 }
 
+/// What the page calls itself, for naming the file. Ordered best-first:
+/// Open Graph and Twitter cards, schema.org JSON-LD (a `VideoObject` usually
+/// carries the real title even when the page's own `<title>` is SEO noise),
+/// then the document title as the last resort.
+function pageMetadata() {
+  const content = (selector) => {
+    const element = document.querySelector(selector);
+    const value = element && (element.getAttribute("content") || element.textContent);
+    return (value || "").trim();
+  };
+
+  const fromJsonLd = () => {
+    const wanted = /VideoObject|Movie|TVEpisode|Clip|AudioObject|CreativeWork/i;
+    for (const script of document.querySelectorAll('script[type="application/ld+json"]')) {
+      let data;
+      try {
+        data = JSON.parse(script.textContent || "null");
+      } catch (_) {
+        continue;
+      }
+      const roots = Array.isArray(data) ? data : [data];
+      const queue = [...roots];
+      while (queue.length) {
+        const entry = queue.shift();
+        if (!entry || typeof entry !== "object") continue;
+        if (Array.isArray(entry["@graph"])) queue.push(...entry["@graph"]);
+        const type = Array.isArray(entry["@type"]) ? entry["@type"].join(",") : entry["@type"];
+        if (typeof entry.name === "string" && wanted.test(String(type || "")) && entry.name.trim()) {
+          return entry.name.trim();
+        }
+      }
+    }
+    return "";
+  };
+
+  const candidates = [
+    content('meta[property="og:title"]'),
+    content('meta[name="twitter:title"]'),
+    content('meta[property="og:video:title"]'),
+    content('meta[itemprop="name"]'),
+    fromJsonLd(),
+    content('meta[name="title"]'),
+    document.title,
+  ];
+  return candidates.find((value) => value && value.trim()) || "";
+}
+
 /// Queue a download, optionally at a chosen maximum height.
 function request(url, height) {
   if (!url) return;
-  const message = { type: "rdm:add", url, referer: location.href };
+  const message = { type: "rdm:add", url, referer: location.href, title: pageMetadata() };
   if (height) message.height = height;
   api.runtime.sendMessage(message, (res) => {
     const err = api.runtime.lastError;
@@ -267,7 +314,12 @@ setInterval(scan, 2500);
 api.runtime.onMessage.addListener((message, _sender, respond) => {
   if (message && message.type === "rdm:dom") {
     scan();
-    respond({ media: Array.from(found), badges: badgesEnabled });
+    respond({
+      media: Array.from(found),
+      badges: badgesEnabled,
+      // The popup names its downloads the same way the badge does.
+      title: pageMetadata(),
+    });
     return true;
   }
   return undefined;

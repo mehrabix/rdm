@@ -2,6 +2,10 @@ const api = globalThis.browser ?? globalThis.chrome;
 
 const KIND_LABEL = { hls: "HLS", dash: "DASH", video: "Video", audio: "Audio" };
 
+/// What the page calls itself, so RDM can name the file properly instead of
+/// saving `watch.mp4`.
+let pageTitle = "";
+
 function setStatus(ok, text) {
   const el = document.getElementById("status");
   el.textContent = text;
@@ -62,6 +66,7 @@ function render(items) {
           url: item.url,
           referer: item.referer || "",
           contentType: item.contentType || "",
+          title: pageTitle,
         },
         () => ping(),
       );
@@ -77,6 +82,7 @@ function loadMedia() {
     if (!tab) return render([]);
     api.runtime.sendMessage({ type: "rdm:list", tabId: tab.id }, (res) => {
       if (api.runtime.lastError) return render([]);
+      pageTitle = (res && res.title) || tab.title || "";
       render((res && res.media) || []);
     });
   });
@@ -92,7 +98,10 @@ document.getElementById("refresh").addEventListener("click", () => {
 document.getElementById("page").addEventListener("click", () => {
   api.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
     if (!tab || !tab.url) return;
-    api.runtime.sendMessage({ type: "rdm:add", url: tab.url, referer: "" }, () => ping());
+    api.runtime.sendMessage(
+      { type: "rdm:add", url: tab.url, referer: "", title: tab.title || "" },
+      () => ping(),
+    );
   });
 });
 

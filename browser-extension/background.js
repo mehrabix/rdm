@@ -194,7 +194,7 @@ try {
 // ---- actions ---------------------------------------------------------------
 
 /// Forward an http(s) URL to RDM; resolves with `{ok, id|error}`.
-async function queue(url, referer, height, contentType) {
+async function queue(url, referer, height, contentType, title) {
   if (!/^https?:/i.test(url || "")) {
     return { ok: false, error: "not an http(s) URL" };
   }
@@ -207,6 +207,9 @@ async function queue(url, referer, height, contentType) {
       cookies,
       height,
       content_type: contentType || "",
+      // What the page calls the file: RDM names it from this rather than the
+      // URL stem, which is where `watch.mp4` came from.
+      title: title || "",
     });
     if (!response) return { ok: false, error: "no response from RDM" };
     return response;
@@ -232,12 +235,14 @@ async function qualities(url, referer) {
 }
 
 /// Everything detected for a tab: the network registry merged with the page's
-/// own DOM/MSE scan.
+/// own DOM/MSE scan, plus what the page calls itself.
 function listForTab(tabId, respond) {
   const fromRequests = Array.from((mediaByTab.get(tabId) || new Map()).values());
   api.tabs.sendMessage(tabId, { type: "rdm:dom" }, (res) => {
-    const fromDom = api.runtime.lastError ? [] : (res && res.media) || [];
-    respond({ ok: true, media: mergeMedia(fromRequests, fromDom, "") });
+    const failed = api.runtime.lastError;
+    const fromDom = failed ? [] : (res && res.media) || [];
+    const title = failed ? "" : (res && res.title) || "";
+    respond({ ok: true, title, media: mergeMedia(fromRequests, fromDom, "") });
   });
 }
 
@@ -268,7 +273,13 @@ api.contextMenus.onClicked.addListener(async (info) => {
 api.runtime.onMessage.addListener((message, sender, respond) => {
   if (!message) return undefined;
   if (message.type === "rdm:add") {
-    queue(message.url, message.referer, message.height, message.contentType).then(respond);
+    queue(
+      message.url,
+      message.referer,
+      message.height,
+      message.contentType,
+      message.title,
+    ).then(respond);
     return true; // keep the channel open for the async reply
   }
   if (message.type === "rdm:qualities") {
