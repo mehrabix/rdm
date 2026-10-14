@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "RDM — Download with RDM",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Detect video and audio on any site and hand it to RDM (Rust Download Manager) — right-click, the toolbar button, or the badge over each video.",
   "background": { "scripts": ["background.js"] },
   "action": {
