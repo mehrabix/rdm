@@ -46,6 +46,10 @@ pub enum Request {
         /// (`video/mp4`, `application/vnd.apple.mpegurl`, `application/dash+xml`).
         #[serde(default, skip_serializing_if = "Option::is_none")]
         content_type: Option<String>,
+        /// What the page calls the file (`og:title`, JSON-LD, `<title>`), used
+        /// when the URL's own stem is useless.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        title: Option<String>,
     },
     /// List the video heights a URL offers (for a quality picker).
     Qualities {
@@ -139,6 +143,7 @@ async fn add(
     queue: Option<String>,
     height: Option<u32>,
     content_type: Option<String>,
+    title: Option<String>,
 ) -> Response {
     if !(url.starts_with("http://") || url.starts_with("https://")) {
         return Response::error(format!("unsupported URL (only http/https): {url}"));
@@ -157,6 +162,7 @@ async fn add(
     spec.organize = opts.organize_by_category;
     spec.max_height = height.filter(|h| *h > 0);
     spec.content_type = content_type;
+    spec.title = title.filter(|title| !title.trim().is_empty());
 
     // Hand it to the app when it wants to confirm downloads. `ok` with no id
     // means "offered, not queued yet" — the caller (the extension) only reports
@@ -198,10 +204,11 @@ async fn dispatch(manager: &Arc<DownloadManager>, opts: &ServeOptions, req: Requ
             queue,
             height,
             content_type,
+            title,
         } => {
             add(
                 manager, opts, url, file_name, referer, cookies, user_agent, connections, queue,
-                height, content_type,
+                height, content_type, title,
             )
             .await
         }
@@ -332,6 +339,7 @@ mod tests {
                 queue: None,
                 height: None,
                 content_type: None,
+                title: None,
             }
         );
     }
@@ -406,6 +414,7 @@ mod tests {
                 queue: None,
                 height: None,
                 content_type: None,
+                title: None,
             },
         )
         .await

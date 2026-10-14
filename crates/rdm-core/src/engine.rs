@@ -13,7 +13,7 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use futures::stream::{FuturesUnordered, StreamExt};
-use reqwest::Client;
+use reqwest::{Client, Response};
 use tokio::fs::OpenOptions;
 use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 use tokio::sync::{broadcast, Semaphore};
@@ -39,6 +39,11 @@ use crate::ytdlp;
 
 /// How often the engine emits progress snapshots and flushes to disk.
 pub const PROGRESS_INTERVAL: Duration = Duration::from_millis(250);
+
+/// How much of the file the opening request asks for. The response that tells us
+/// the size also carries these bytes, so the transfer starts inside the round
+/// trip that used to be spent probing (see [`http::probe_streaming`]).
+const FIRST_CHUNK: u64 = 4 * 1024 * 1024;
 
 /// Tunables for the manager.
 #[derive(Debug, Clone)]
@@ -115,6 +120,11 @@ pub struct DownloadManager {
     /// Queues the user has stopped; tasks in them wait.
     stopped_queues: Arc<RwLock<std::collections::HashSet<String>>>,
     queue_notify: Arc<tokio::sync::Notify>,
+    /// Bodies already open for a task: the opening request asked for the file's
+    /// first chunk, and those bytes are the first segment's data — no point
+    /// asking the server twice. The flag is whether ranges are supported, which
+    /// decides how much of the body may be used.
+    primed: Arc<Mutex<HashMap<String, (reqwest::Response, bool)>>>,
 }
 
 impl DownloadManager {
@@ -133,6 +143,7 @@ impl DownloadManager {
             queue_limits: Arc::new(RwLock::new(queue_limits)),
             stopped_queues: Arc::new(RwLock::new(std::collections::HashSet::new())),
             queue_notify: Arc::new(tokio::sync::Notify::new()),
+            primed: Arc::new(Mutex::new(HashMap::new())),
         }))
     }
 
@@ -441,15 +452,9 @@ impl DownloadManager {
         }
 
         // A provisional name from the URL gives the row something to show until
-        // the probe refines it (unless the caller named the file). An HLS stream
-        // is written as an MPEG-TS file, not a playlist.
+        // the probe refines it (unless the caller named the file).
         if spec.file_name.is_none() {
-            let mut name = util::filename_from_url(&spec.url);
-            if spec.kind == DownloadKind::Hls && name.to_ascii_lowercase().ends_with(".m3u8") {
-                name.truncate(name.len() - 5);
-                name.push_str(".ts");
-            }
-            spec.file_name = Some(name);
+            spec.file_name = Some(provisional_name(&spec));
         }
 
         let id = uuid::Uuid::new_v4().to_string();
@@ -508,7 +513,11 @@ impl DownloadManager {
         self.set_status(id, DownloadStatus::Probing).await;
 
         let opts = RequestOptions::from_spec(&spec);
-        let remote = http::probe(&self.client, &spec.url, &opts).await?;
+        // Probe and start in one request: the body we get back is the beginning
+        // of the file, so the first segment is already on its way.
+        let (remote, primed) =
+            http::probe_streaming(&self.client, &spec.url, &opts, FIRST_CHUNK).await?;
+        let accept_ranges = remote.accept_ranges;
         tracing::info!(
             url = %spec.url,
             size = ?remote.total_size,
@@ -555,7 +564,9 @@ impl DownloadManager {
         // Resolve the final name/dir before taking the lock (no await inside it).
         let provisional = util::filename_from_url(&spec.url);
         let server_name = util::sanitize_filename(&remote.file_name);
-        let chosen = if !server_name.is_empty() && spec.file_name.as_deref() == Some(provisional.as_str())
+        let chosen = if !server_name.is_empty()
+            && !util::is_generic_stem(&server_name)
+            && spec.file_name.as_deref() == Some(provisional.as_str())
         {
             server_name
         } else {
@@ -599,6 +610,17 @@ impl DownloadManager {
         drop(tasks);
         if let Some(task) = snapshot {
             let _ = self.events.send(EngineEvent::StateChanged { task });
+        }
+
+        // Hand the opening body to the transfer. The page and manifest cases are
+        // routed elsewhere, so their bodies are dropped here.
+        if let Some(response) = primed {
+            if !is_html && !is_dash && !is_hls {
+                self.primed
+                    .lock()
+                    .await
+                    .insert(id.to_string(), (response, accept_ranges));
+            }
         }
         Ok(())
     }
@@ -775,7 +797,7 @@ impl DownloadManager {
     }
 
     async fn transfer(self: &Arc<Self>, id: &str) -> Result<()> {
-        let (spec, segments, total, out_path) = {
+        let (spec, mut segments, total, out_path) = {
             let tasks = self.tasks.read().await;
             let task = tasks.get(id).ok_or_else(|| not_found(id))?;
             (
@@ -798,14 +820,65 @@ impl DownloadManager {
             }
         }
 
+        // The bytes the opening request already fetched. Writing them now means
+        // data lands on disk before the first segment request is even made.
+        let mut primed = self.primed.lock().await.remove(id);
+        if !segments.is_empty() {
+            if let Some((response, ranged)) = primed.take() {
+                if let Some(first) = segments.first_mut() {
+                    // Ranged: the body is capped at the opening chunk, so take
+                    // what is there and let the worker finish the segment. Not
+                    // ranged: the body is the whole file, so take all of it.
+                    let want = if ranged {
+                        first.len().min(FIRST_CHUNK)
+                    } else {
+                        first.len()
+                    };
+                    match write_prefix(response, &out_path, first.start, want, &self.limiter, &control)
+                        .await
+                    {
+                        Ok(written) if written > 0 => {
+                            first.downloaded = written;
+                            if written >= first.len() {
+                                first.status = SegmentStatus::Done;
+                            }
+                            tracing::info!(%id, bytes = written, "started from the opening request");
+                        }
+                        Ok(_) => {}
+                        Err(err) => {
+                            // Not fatal: the segment worker will fetch it instead.
+                            tracing::warn!(%id, %err, "could not use the opening body");
+                        }
+                    }
+                }
+            }
+        }
+
         let lives = Arc::new(StdMutex::new(build_lives(&segments)));
+
+        // The task list should show the bytes we already have.
+        {
+            let mut tasks = self.tasks.write().await;
+            if let Some(task) = tasks.get_mut(id) {
+                task.segments = segments.clone();
+            }
+        }
+
         let single = Arc::new(AtomicU64::new(0));
 
         let ticker = self.spawn_ticker(id.to_string(), lives.clone(), single.clone(), total);
 
         let result = if segments.is_empty() {
-            self.stream_single(&spec, &out_path, &opts, &single, &self.limiter, &control)
-                .await
+            self.stream_single(
+                &spec,
+                &out_path,
+                &opts,
+                &single,
+                &self.limiter,
+                &control,
+                primed.map(|(response, _)| response),
+            )
+            .await
         } else {
             self.stream_segments(&spec, &lives, &out_path, &self.limiter, &control)
                 .await
@@ -923,13 +996,20 @@ impl DownloadManager {
             .unwrap_or_else(|| PathBuf::from("."));
         tokio::fs::create_dir_all(&dir).await?;
 
-        // yt-dlp picks the container; give it a stem.
+        // yt-dlp picks the container; give it a stem — unless the URL gave us
+        // nothing usable and the page told us nothing, in which case yt-dlp's own
+        // `%(title)s` is the right name (this is what stops `watch.mp4`).
         let stem = out_path
             .file_stem()
             .and_then(|s| s.to_str())
             .unwrap_or("video")
             .to_string();
-        let template = dir.join(format!("{stem}.%(ext)s"));
+        let named_by_title = spec.title.is_none() && util::is_generic_stem(&stem);
+        let template = if named_by_title {
+            dir.join("%(title)s.%(ext)s")
+        } else {
+            dir.join(format!("{stem}.%(ext)s"))
+        };
 
         let mut command = tokio::process::Command::new(&binary);
         let js_runtime = ytdlp::find_js_runtime();
@@ -982,7 +1062,7 @@ impl DownloadManager {
         }
 
         // Record the file yt-dlp produced (it chose the extension).
-        if let Some(name) = produced_file(&dir, &stem).await {
+        if let Some(name) = produced_file(&dir, (!named_by_title).then_some(stem.as_str())).await {
             if let Ok(meta) = tokio::fs::metadata(dir.join(&name)).await {
                 let size = meta.len();
                 let mut tasks = self.tasks.write().await;
@@ -1050,8 +1130,14 @@ impl DownloadManager {
         single: &Arc<AtomicU64>,
         limiter: &Arc<RateLimiter>,
         control: &Control,
+        primed: Option<Response>,
     ) -> Result<()> {
-        let resp = http::fetch_full(&self.client, &spec.url, opts).await?;
+        // The opening request's body is the whole file when the server would not
+        // do ranges, so there is no reason to ask for it again.
+        let resp = match primed {
+            Some(response) => response,
+            None => http::fetch_full(&self.client, &spec.url, opts).await?,
+        };
         let mut file = OpenOptions::new()
             .write(true)
             .create(true)
@@ -1397,6 +1483,46 @@ async fn download_live(
     Ok(())
 }
 
+/// Copy the first `want` bytes of an already-open response into `path` at
+/// `offset`, honouring the limiters and the pause/cancel flags. Returns how many
+/// bytes were written.
+///
+/// Used for the body the opening request already delivered: those bytes would
+/// otherwise be thrown away and fetched a second time.
+async fn write_prefix(
+    response: Response,
+    path: &Path,
+    offset: u64,
+    want: u64,
+    global: &Arc<RateLimiter>,
+    control: &Control,
+) -> Result<u64> {
+    let mut file = OpenOptions::new().write(true).open(path).await?;
+    file.seek(SeekFrom::Start(offset)).await?;
+
+    let mut stream = response.bytes_stream();
+    let mut written = 0u64;
+    while written < want {
+        if control.cancel.is_cancelled() {
+            return Err(Error::Cancelled);
+        }
+        if control.paused.load(Ordering::Relaxed) {
+            return Err(Error::Paused);
+        }
+        let Some(chunk) = stream.next().await else {
+            break;
+        };
+        let chunk = chunk?;
+        let take = chunk.len().min((want - written) as usize);
+        global.acquire(take as u64).await;
+        control.limiter.acquire(take as u64).await;
+        file.write_all(&chunk[..take]).await?;
+        written += take as u64;
+    }
+    file.flush().await?;
+    Ok(written)
+}
+
 async fn preallocate(path: &Path, total: u64) -> Result<()> {
     let file = OpenOptions::new().write(true).create(true).open(path).await?;
     file.set_len(total).await?;
@@ -1428,6 +1554,34 @@ async fn remux_to_mp4(path: &Path) -> Option<PathBuf> {
     Some(target)
 }
 
+/// The name a download shows until the probe (or `yt-dlp`) knows better.
+///
+/// A route stem like `watch` says nothing about the file, so what the page calls
+/// itself wins there — that is what stops `youtube.com/watch?v=…` from being
+/// saved as `watch.mp4`.
+fn provisional_name(spec: &DownloadSpec) -> String {
+    let mut from_url = util::filename_from_url(&spec.url);
+    if spec.kind == DownloadKind::Hls && from_url.to_ascii_lowercase().ends_with(".m3u8") {
+        from_url.truncate(from_url.len() - 5);
+        from_url.push_str(".ts");
+    }
+
+    let Some(title) = spec.title.as_deref() else {
+        return from_url;
+    };
+    if !util::is_generic_stem(&from_url) {
+        return from_url;
+    }
+    let clean = util::sanitize_filename(title);
+    if clean.is_empty() {
+        return from_url;
+    }
+    match util::extension_of(&from_url) {
+        Some(ext) => format!("{clean}.{ext}"),
+        None => clean,
+    }
+}
+
 /// yt-dlp's last stderr line, plus an actionable hint when we have one.
 fn ytdlp_failure(stderr: &str, fallback: &str) -> String {
     let detail = stderr
@@ -1447,17 +1601,42 @@ fn not_found(id: &str) -> Error {
     Error::NotFound(id.to_string())
 }
 
-/// The file `yt-dlp` produced for a given stem (it picks the extension).
-async fn produced_file(dir: &Path, stem: &str) -> Option<String> {
-    let prefix = format!("{stem}.");
+/// The file yt-dlp produced: by stem when we named it, otherwise the newest
+/// media file in the directory (yt-dlp named it after the video's own title).
+async fn produced_file(dir: &Path, stem: Option<&str>) -> Option<String> {
+    let prefix = stem.map(|stem| format!("{stem}."));
+    let mut newest: Option<(SystemTime, String)> = None;
     let mut entries = tokio::fs::read_dir(dir).await.ok()?;
     while let Ok(Some(entry)) = entries.next_entry().await {
         let name = entry.file_name().to_string_lossy().to_string();
-        if name.starts_with(&prefix) {
-            return Some(name);
+        if let Some(prefix) = &prefix {
+            if name.starts_with(prefix) {
+                return Some(name);
+            }
+            continue;
+        }
+        // No prefix to match on: skip the partials and sidecars yt-dlp leaves.
+        if name.ends_with(".part")
+            || name.ends_with(".ytdl")
+            || name.ends_with(".temp")
+            || name.starts_with('.')
+        {
+            continue;
+        }
+        let Ok(meta) = entry.metadata().await else {
+            continue;
+        };
+        if meta.is_dir() {
+            continue;
+        }
+        let Ok(modified) = meta.modified() else {
+            continue;
+        };
+        if newest.as_ref().map(|(at, _)| modified > *at).unwrap_or(true) {
+            newest = Some((modified, name));
         }
     }
-    None
+    newest.map(|(_, name)| name)
 }
 
 fn now() -> i64 {

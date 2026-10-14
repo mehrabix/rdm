@@ -76,6 +76,7 @@ fn to_request(message: &Value) -> Request {
                 .and_then(Value::as_u64)
                 .map(|n| n.min(4320) as u32),
             content_type: opt_string(message, "content_type"),
+            title: opt_string(message, "title"),
         },
     }
 }

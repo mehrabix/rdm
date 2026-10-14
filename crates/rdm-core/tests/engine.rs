@@ -77,6 +77,79 @@ async fn spawn_server(data: Vec<u8>, supports_ranges: bool) -> std::net::SocketA
     addr
 }
 
+/// Like [`spawn_server`], but records the `Range` header of every request, so a
+/// test can assert how the downloader talks to the server.
+async fn spawn_recording_server(
+    data: Vec<u8>,
+) -> (std::net::SocketAddr, Arc<std::sync::Mutex<Vec<String>>>) {
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    let shared = Arc::new(data);
+    let ranges = Arc::new(std::sync::Mutex::new(Vec::new()));
+
+    let record = ranges.clone();
+    tokio::spawn(async move {
+        loop {
+            let Ok((mut socket, _)) = listener.accept().await else {
+                continue;
+            };
+            let data = shared.clone();
+            let record = record.clone();
+            tokio::spawn(async move {
+                let mut buf = Vec::new();
+                let mut tmp = [0u8; 2048];
+                loop {
+                    match socket.read(&mut tmp).await {
+                        Ok(0) => break,
+                        Ok(n) => {
+                            buf.extend_from_slice(&tmp[..n]);
+                            if buf.windows(4).any(|w| w == b"\r\n\r\n") {
+                                break;
+                            }
+                        }
+                        Err(_) => return,
+                    }
+                }
+
+                let request = String::from_utf8_lossy(&buf).to_string();
+                let range = request.lines().find_map(|line| {
+                    line.to_ascii_lowercase()
+                        .strip_prefix("range:")
+                        .map(|value| value.trim().to_string())
+                });
+                if let Some(range) = range.clone() {
+                    if let Ok(mut list) = record.lock() {
+                        list.push(range);
+                    }
+                }
+
+                let total = data.len() as u64;
+                let (status, start, end) = match range.as_deref().and_then(parse_range) {
+                    Some((s, e)) => (206u16, s, e.min(total - 1)),
+                    None => (200u16, 0, total - 1),
+                };
+                let body = &data[start as usize..=end as usize];
+                let reason = if status == 206 { "Partial Content" } else { "OK" };
+                let mut head = format!(
+                    "HTTP/1.1 {status} {reason}\r\nContent-Length: {}\r\nAccept-Ranges: bytes\r\nConnection: close\r\n",
+                    body.len()
+                );
+                if status == 206 {
+                    head.push_str(&format!("Content-Range: bytes {start}-{end}/{total}\r\n"));
+                }
+                head.push_str("\r\n");
+
+                let _ = socket.write_all(head.as_bytes()).await;
+                let _ = socket.write_all(body).await;
+                let _ = socket.flush().await;
+                let _ = socket.shutdown().await;
+            });
+        }
+    });
+
+    (addr, ranges)
+}
+
 fn parse_range(value: &str) -> Option<(u64, u64)> {
     let value = value.trim().trim_start_matches("bytes=");
     let (start, end) = value.split_once('-')?;
@@ -395,6 +468,42 @@ async fn a_later_download_waits_until_resumed() {
     let task = wait_until_terminal(&mgr, &id, Duration::from_secs(20)).await;
     assert_eq!(task.status, DownloadStatus::Completed, "error: {:?}", task.error);
     assert_eq!(std::fs::read(dir.path().join("later.bin")).unwrap(), data);
+}
+
+/// IDM starts downloading while it is still finding out how big the file is, and
+/// so does RDM: the opening request asks for the file's first chunk rather than
+/// a single byte, and those bytes become the first segment. This asserts that no
+/// separate `bytes=0-0` probe is sent and the file still matches byte for byte.
+#[tokio::test]
+async fn the_opening_request_is_also_the_first_segment() {
+    let data = payload(4 * 1024 * 1024);
+    let (addr, ranges) = spawn_recording_server(data.clone()).await;
+    let dir = tempfile::tempdir().unwrap();
+    let config = EngineConfig {
+        // Keep the request count deterministic.
+        dynamic_segmentation: false,
+        ..EngineConfig::default()
+    };
+    let mgr = DownloadManager::new(config).unwrap();
+
+    let spec = DownloadSpec::new(format!("http://{addr}/file.bin"), dir.path()).connections(4);
+    let id = mgr.add(spec).await.unwrap();
+    let task = wait_until_terminal(&mgr, &id, Duration::from_secs(30)).await;
+    assert_eq!(task.status, DownloadStatus::Completed, "error: {:?}", task.error);
+    assert_eq!(std::fs::read(dir.path().join("file.bin")).unwrap(), data);
+
+    let asked = ranges.lock().unwrap().clone();
+    assert!(
+        !asked.iter().any(|range| range == "bytes=0-0"),
+        "the separate 0-0 probe is what this removes; saw {asked:?}"
+    );
+    assert!(
+        asked.iter().any(|range| range.starts_with("bytes=0-")),
+        "the first request should ask for the file's start: {asked:?}"
+    );
+    // Four connections: the opening request is the first of them, so the whole
+    // file takes no more than four requests.
+    assert!(asked.len() <= 4, "expected no extra round trip, saw {asked:?}");
 }
 
 /// Live network check (ignored by default). HTTPS probing must work with the

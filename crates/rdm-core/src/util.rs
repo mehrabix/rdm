@@ -91,6 +91,29 @@ pub fn unique_path(dir: &Path, name: &str) -> PathBuf {
     dir.join(name)
 }
 
+/// Stems that name a *route*, not a file: `youtube.com/watch?v=…` would
+/// otherwise be saved as `watch.mp4`. When the URL stem is one of these, the
+/// page's own title is a far better name.
+const GENERIC_STEMS: &[&str] = &[
+    "watch", "index", "video", "videos", "embed", "player", "play", "v", "view",
+    "file", "files", "download", "downloads", "get", "media", "stream", "page",
+    "default", "detail", "item", "content", "movie", "show", "episode", "live",
+];
+
+/// Whether a file name's stem is a generic route rather than a real name.
+pub fn is_generic_stem(name: &str) -> bool {
+    let stem = name.rsplit_once('.').map(|(stem, _)| stem).unwrap_or(name);
+    let stem = stem.trim().to_ascii_lowercase();
+    stem.is_empty() || GENERIC_STEMS.contains(&stem.as_str())
+}
+
+/// The extension of a file name, lowercased (without the dot).
+pub fn extension_of(name: &str) -> Option<String> {
+    name.rsplit_once('.')
+        .map(|(_, ext)| ext.trim().to_ascii_lowercase())
+        .filter(|ext| !ext.is_empty() && ext.len() <= 5 && ext.chars().all(|c| c.is_ascii_alphanumeric()))
+}
+
 /// Locate an executable: the usual system directories first, then `PATH`.
 /// A desktop launch has a minimal `PATH`, so the fixed directories matter.
 pub fn find_executable(name: &str) -> Option<PathBuf> {
@@ -170,5 +193,22 @@ mod tests {
     fn sidecar_name() {
         let p = sidecar_path(Path::new("/tmp/foo.tar.gz"));
         assert_eq!(p.file_name().unwrap(), "foo.tar.gz.rdm.json");
+    }
+
+    #[test]
+    fn generic_route_stems_are_recognised() {
+        // The `watch?v=…` case: the URL says nothing about the file.
+        assert!(is_generic_stem("watch"));
+        assert!(is_generic_stem("watch.mp4"));
+        assert!(is_generic_stem("index.html"));
+        assert!(is_generic_stem(""));
+        assert!(!is_generic_stem("interview-1080p.mp4"));
+        assert!(!is_generic_stem("ubuntu-26.04.iso"));
+        assert!(!is_generic_stem("report"));
+
+        assert_eq!(extension_of("clip.mp4").as_deref(), Some("mp4"));
+        assert_eq!(extension_of("archive.tar.gz").as_deref(), Some("gz"));
+        assert_eq!(extension_of("watch?v=1").as_deref(), None);
+        assert_eq!(extension_of("noextension").as_deref(), None);
     }
 }

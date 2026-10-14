@@ -84,6 +84,40 @@ pub async fn probe(client: &Client, url: &str, opts: &RequestOptions) -> Result<
     Ok(from_response(url, &head, false))
 }
 
+/// Probe *and* start: ask for the first `first_chunk` bytes rather than a single
+/// byte, so the response that tells us the size is also the beginning of the
+/// file. IDM's "it starts immediately" behaviour, and it removes a whole round
+/// trip from every download.
+///
+/// Returns the same [`RemoteInfo`] as [`probe`], plus the response to consume —
+/// `None` when the server would not give us a body to keep (a rejected ranged
+/// request, an error status).
+pub async fn probe_streaming(
+    client: &Client,
+    url: &str,
+    opts: &RequestOptions,
+    first_chunk: u64,
+) -> Result<(RemoteInfo, Option<Response>)> {
+    let span = first_chunk.max(1).saturating_sub(1);
+    let resp = with_headers(
+        client.get(url).header(header::RANGE, format!("bytes=0-{span}")),
+        opts,
+    )
+    .send()
+    .await?;
+
+    // 206: the total is in `Content-Range`, and the body is the file's start.
+    if resp.status() == reqwest::StatusCode::PARTIAL_CONTENT {
+        return Ok((from_response(url, &resp, true), Some(resp)));
+    }
+    // 200: the server ignored the range and is sending everything — keep it as
+    // the single stream rather than asking twice.
+    if resp.status().is_success() {
+        return Ok((from_response(url, &resp, false), Some(resp)));
+    }
+    Ok((probe(client, url, opts).await?, None))
+}
+
 fn from_response(url: &str, resp: &Response, ranged: bool) -> RemoteInfo {
     let headers = resp.headers();
     let final_url = resp.url().to_string();

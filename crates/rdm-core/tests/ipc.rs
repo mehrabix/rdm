@@ -135,6 +135,7 @@ async fn add_over_the_socket_downloads_the_file() {
             queue: None,
             height: None,
             content_type: None,
+            title: None,
         },
     )
     .await
@@ -204,6 +205,7 @@ async fn a_gated_add_is_offered_not_queued() {
             queue: None,
             height: None,
             content_type: Some("video/mp4".into()),
+            title: None,
         },
     )
     .await

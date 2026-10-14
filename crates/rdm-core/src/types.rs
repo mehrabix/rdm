@@ -197,6 +197,10 @@ pub struct DownloadSpec {
     /// scheduler (IDM's "Download Later").
     #[serde(default)]
     pub start_paused: bool,
+    /// What the page says this file is called — `og:title`, JSON-LD, `<title>`.
+    /// Used to name the file when the URL's own stem is useless (`watch`).
+    #[serde(default)]
+    pub title: Option<String>,
 }
 
 impl DownloadSpec {
@@ -218,6 +222,7 @@ impl DownloadSpec {
             max_height: None,
             content_type: None,
             start_paused: false,
+            title: None,
         }
     }
 
@@ -245,6 +250,13 @@ impl DownloadSpec {
     /// waits in the queue until it is resumed or the scheduler window opens.
     pub fn start_paused(mut self) -> Self {
         self.start_paused = true;
+        self
+    }
+
+    /// Name the download after what the page calls it.
+    pub fn title(mut self, title: impl Into<String>) -> Self {
+        let value = title.into();
+        self.title = (!value.trim().is_empty()).then_some(value);
         self
     }
 
