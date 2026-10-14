@@ -91,6 +91,34 @@ pub fn find_binary() -> Option<PathBuf> {
     None
 }
 
+/// Browser profile directories to probe, in order, as `(yt-dlp name, path)`.
+///
+/// Sites like YouTube refuse anonymous extraction outright, and the user's own
+/// browser already holds the signed-in session — so when nothing is configured,
+/// the first browser that is actually installed is the right cookie source.
+fn browser_candidates(home: &Path) -> Vec<(&'static str, PathBuf)> {
+    [
+        ("firefox", ".mozilla/firefox"),
+        ("firefox", "snap/firefox/common/.mozilla/firefox"),
+        ("chrome", ".config/google-chrome"),
+        ("chromium", ".config/chromium"),
+        ("edge", ".config/microsoft-edge"),
+        ("brave", ".config/BraveSoftware/Brave-Browser"),
+    ]
+    .into_iter()
+    .map(|(name, dir)| (name, home.join(dir)))
+    .collect()
+}
+
+/// The browser yt-dlp should read cookies from when the user has not chosen one.
+pub fn detect_browser() -> Option<String> {
+    let home = std::env::var_os("HOME").map(PathBuf::from)?;
+    browser_candidates(&home)
+        .into_iter()
+        .find(|(_, dir)| dir.is_dir())
+        .map(|(name, _)| name.to_string())
+}
+
 /// A JS runtime yt-dlp can use for the challenges (`<name>:<path>`).
 pub fn find_js_runtime() -> Option<String> {
     for name in ["deno", "node", "bun"] {
@@ -173,10 +201,16 @@ pub fn list_args(url: &str, opts: &Options<'_>) -> Vec<String> {
 /// yt-dlp's own messages say *what* failed but not what RDM needs from you.
 pub fn hint(stderr: &str) -> Option<&'static str> {
     let lower = stderr.to_ascii_lowercase();
-    if lower.contains("confirm you") && lower.contains("not a bot") {
-        Some("Sign in to the site in your browser, and install node or deno so yt-dlp can use cookies and solve challenges.")
+    if lower.contains("innertube_context") || lower.contains("player response") {
+        // YouTube refused the client: an extractor crash here means it never got
+        // a usable page, which is what a missing session looks like.
+        Some("YouTube refused that request. Sign in to YouTube in your browser, set it under Options → Browser, and install node or deno so yt-dlp can solve the player challenge.")
     } else if lower.contains("needs to be reloaded") || lower.contains("signature solving") {
         Some("Install node or deno: yt-dlp needs a JavaScript runtime to solve this site's player challenge.")
+    } else if lower.contains("confirm you") && lower.contains("not a bot") {
+        Some("Sign in to the site in your browser, and install node or deno so yt-dlp can use cookies and solve challenges.")
+    } else if lower.contains("impersonate") {
+        Some("Install yt-dlp with impersonation support: `pipx install 'yt-dlp[default,curl-cffi]'`.")
     } else if lower.contains("ffmpeg") && lower.contains("not found") {
         Some("Install ffmpeg: it is required to merge separate video and audio tracks.")
     } else {
@@ -185,6 +219,11 @@ pub fn hint(stderr: &str) -> Option<&'static str> {
 }
 
 /// Distinct video heights advertised in a `yt-dlp -J` dump, largest first.
+///
+/// Only *video* formats count. yt-dlp also lists storyboards — sprite sheets
+/// with a `height` and no codec (`sb0`, `ext: mhtml`, `format_note: storyboard`)
+/// — and treating those as resolutions is how a 360p video ended up offering
+/// "27p, 45p, 90p, 180p".
 pub fn parse_heights(json: &str) -> Vec<u32> {
     let Ok(value) = serde_json::from_str::<serde_json::Value>(json) else {
         return Vec::new();
@@ -195,7 +234,18 @@ pub fn parse_heights(json: &str) -> Vec<u32> {
         .map(|formats| {
             formats
                 .iter()
-                .filter_map(|format| format.get("height").and_then(|h| h.as_u64()))
+                .filter(|format| is_video_format(format))
+                .filter_map(|format| {
+                    format
+                        .get("height")
+                        .and_then(|h| h.as_u64())
+                        .or_else(|| {
+                            format
+                                .get("resolution")
+                                .and_then(|r| r.as_str())
+                                .and_then(resolution_height)
+                        })
+                })
                 .filter(|height| *height > 0)
                 .map(|height| height as u32)
                 .collect()
@@ -205,6 +255,26 @@ pub fn parse_heights(json: &str) -> Vec<u32> {
     heights.dedup();
     heights.reverse();
     heights
+}
+
+/// The height in a `"640x360"` resolution string.
+fn resolution_height(resolution: &str) -> Option<u64> {
+    let (_, height) = resolution.split_once('x')?;
+    height.trim().parse().ok()
+}
+
+/// Whether a format entry is a real video stream: it must carry a video codec,
+/// and must not be a storyboard sprite sheet.
+fn is_video_format(format: &serde_json::Value) -> bool {
+    let text = |key: &str| format.get(key).and_then(|v| v.as_str()).unwrap_or("");
+    let codec = text("vcodec");
+    if codec.is_empty() || codec == "none" {
+        return false;
+    }
+    if text("format_note").eq_ignore_ascii_case("storyboard") {
+        return false;
+    }
+    text("ext") != "mhtml"
 }
 
 #[cfg(test)]
@@ -249,17 +319,60 @@ mod tests {
         assert!(hint("some unrelated failure").is_none());
     }
 
+    /// The confusing YouTube failure — an `INNERTUBE_CONTEXT` crash instead of a
+    /// clean "sign in" — must still tell the user what to do.
+    #[test]
+    fn hint_explains_a_refused_youtube_client() {
+        let hint = hint("ERROR: [youtube] x: An extractor error has occurred. (caused by KeyError('INNERTUBE_CONTEXT'))")
+            .expect("the internal-context crash needs a hint");
+        assert!(hint.contains("Sign in"), "{hint}");
+        assert!(hint.contains("Options → Browser"), "{hint}");
+    }
+
+    #[test]
+    fn browser_candidates_cover_the_common_installs() {
+        let home = std::env::temp_dir().join(format!("rdm-browsers-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&home);
+        let names: Vec<&str> = browser_candidates(&home).iter().map(|(n, _)| *n).collect();
+        assert!(names.contains(&"firefox"));
+        assert!(names.contains(&"chrome"));
+        assert!(names.contains(&"chromium"));
+        // Nothing installed under an empty home: no candidate exists.
+        assert!(browser_candidates(&home).iter().all(|(_, dir)| !dir.is_dir()));
+
+        std::fs::create_dir_all(home.join(".config/google-chrome")).unwrap();
+        let found = browser_candidates(&home)
+            .into_iter()
+            .find(|(_, dir)| dir.is_dir())
+            .map(|(name, _)| name.to_string());
+        assert_eq!(found.as_deref(), Some("chrome"));
+        let _ = std::fs::remove_dir_all(&home);
+    }
+
     #[test]
     fn parse_heights_dedupes_and_sorts_descending() {
         let json = r#"{"formats":[
-            {"format_id":"137","height":1080},
-            {"format_id":"136","height":720},
-            {"format_id":"18","height":360},
-            {"format_id":"140","height":null,"acodec":"mp4a"},
-            {"format_id":"135","height":720}
+            {"format_id":"137","height":1080,"vcodec":"avc1","ext":"mp4"},
+            {"format_id":"136","height":720,"vcodec":"avc1","ext":"mp4"},
+            {"format_id":"18","height":360,"vcodec":"avc1","ext":"mp4"},
+            {"format_id":"140","height":null,"acodec":"mp4a","vcodec":"none","ext":"m4a"},
+            {"format_id":"135","height":720,"vcodec":"avc1","ext":"mp4"}
         ]}"#;
         assert_eq!(parse_heights(json), vec![1080, 720, 360]);
         assert!(parse_heights("not json").is_empty());
+    }
+
+    /// The bug behind an unreadable quality list: storyboards are not video, and
+    /// a format may carry its size only as a `"640x360"` string.
+    #[test]
+    fn qualities_ignore_storyboards_and_read_the_resolution() {
+        let json = r#"{"formats":[
+            {"format_id":"sb0","ext":"mhtml","height":180,"resolution":"270x180","format_note":"storyboard","vcodec":"none","acodec":"none"},
+            {"format_id":"sb3","ext":"mhtml","height":27,"resolution":"48x27","format_note":"storyboard","vcodec":"none","acodec":"none"},
+            {"format_id":"18","ext":"mp4","height":360,"resolution":"540x360","format_note":"360p","vcodec":"avc1.42001E","acodec":"mp4a.40.2"},
+            {"format_id":"22","ext":"mp4","resolution":"1280x720","vcodec":"avc1.64001F","acodec":"mp4a.40.2"}
+        ]}"#;
+        assert_eq!(parse_heights(json), vec![720, 360]);
     }
 
     #[test]

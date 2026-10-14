@@ -147,6 +147,18 @@ impl DownloadManager {
         }))
     }
 
+    /// The browser yt-dlp should read cookies from: whatever the user chose,
+    /// else the first browser that is installed. Sites like YouTube refuse
+    /// anonymous extraction outright ("confirm you're not a bot", or an
+    /// extractor crash), and the signed-in session already lives in that browser.
+    fn cookie_browser(&self) -> Option<String> {
+        self.config
+            .ytdlp_cookies_from_browser
+            .clone()
+            .filter(|name| !name.trim().is_empty())
+            .or_else(ytdlp::detect_browser)
+    }
+
     pub fn config(&self) -> &EngineConfig {
         &self.config
     }
@@ -331,11 +343,12 @@ impl DownloadManager {
         let binary =
             ytdlp::find_binary().ok_or_else(|| Error::invalid("yt-dlp is not installed"))?;
         let js_runtime = ytdlp::find_js_runtime();
+        let browser = self.cookie_browser();
         let opts = ytdlp::Options {
             cookies: cookies.filter(|value| !value.trim().is_empty()),
             user_agent,
             referer,
-            cookies_from_browser: self.config.ytdlp_cookies_from_browser.as_deref(),
+            cookies_from_browser: browser.as_deref(),
             js_runtime: js_runtime.as_deref(),
             ..ytdlp::Options::default()
         };
@@ -1014,6 +1027,10 @@ impl DownloadManager {
             dir.join(format!("{stem}.%(ext)s"))
         };
 
+        let browser = self.cookie_browser();
+        if let Some(browser) = &browser {
+            tracing::debug!(%browser, "yt-dlp will read that browser's cookies");
+        }
         let mut command = tokio::process::Command::new(&binary);
         let js_runtime = ytdlp::find_js_runtime();
         let selector = spec
@@ -1025,7 +1042,7 @@ impl DownloadManager {
             cookies: spec.cookies.as_deref(),
             user_agent: spec.user_agent.as_deref(),
             referer: spec.referer.as_deref(),
-            cookies_from_browser: self.config.ytdlp_cookies_from_browser.as_deref(),
+            cookies_from_browser: browser.as_deref(),
             js_runtime: js_runtime.as_deref(),
         };
         command
