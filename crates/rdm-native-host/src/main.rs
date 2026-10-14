@@ -90,6 +90,14 @@ fn response_value(resp: ipc::Response) -> Value {
     if let Some(error) = resp.error {
         out.insert("error".into(), Value::String(error));
     }
+    // The quality list has to survive the trip: without this the extension's
+    // menu only ever showed "Loading qualities…" and then an empty list.
+    if let Some(heights) = resp.heights {
+        out.insert(
+            "heights".into(),
+            Value::Array(heights.into_iter().map(|h| Value::from(h as u64)).collect()),
+        );
+    }
     Value::Object(out)
 }
 
@@ -188,6 +196,23 @@ mod tests {
             }
             Request::Ping | Request::Qualities { .. } => panic!("expected an Add request"),
         }
+    }
+
+    /// The quality list must reach the extension: dropping it here is why the
+    /// badge menu showed "Loading qualities…" and then nothing.
+    #[test]
+    fn a_quality_list_survives_the_reply() {
+        let with = response_value(ipc::Response::ok(None).with_heights(vec![1080, 720, 360]));
+        assert_eq!(with["heights"], serde_json::json!([1080, 720, 360]));
+
+        // An empty list is still a list: the menu distinguishes "none" from
+        // "never asked".
+        let empty = response_value(ipc::Response::ok(None).with_heights(vec![]));
+        assert_eq!(empty["heights"], serde_json::json!([]));
+
+        // Plain replies keep omitting the field.
+        let plain = response_value(ipc::Response::ok(None));
+        assert!(plain.get("heights").is_none());
     }
 
     #[test]
