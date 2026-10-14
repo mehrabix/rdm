@@ -101,6 +101,7 @@ pub fn App() -> Element {
             if is_new && looks_like_url {
                 // A copied link is *offered*, so the window can ask first
                 // (IDM's clipboard capture); silenced sources queue directly.
+                tracing::info!(url = %trimmed, "clipboard link detected");
                 state.offer(
                     PendingDownload::new(trimmed, &current, OfferSource::Clipboard),
                     &current,

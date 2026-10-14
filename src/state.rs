@@ -576,14 +576,22 @@ fn set<T: 'static>(mut signal: Signal<T>, value: T) {
     signal.set(value);
 }
 
-/// Read text from the system clipboard (Wayland first, then X11), with a hard
-/// timeout so a stuck helper can never wedge the app. Empty string when neither
-/// tool is available.
+/// Read text from the system clipboard, with a hard timeout so a stuck helper
+/// can never wedge the app. Empty string when no tool is available.
+///
+/// X11 first whenever an X display exists: under Wayland `wl-paste` makes the
+/// compositor raise a transient popup surface on every call in some setups,
+/// while XWayland's `xclip` reads the same selection without that side effect.
 pub fn clipboard_text() -> String {
-    let readers: [(&str, &[&str]); 2] = [
-        ("wl-paste", &["--no-newline"]),
-        ("xclip", &["-selection", "clipboard", "-o"]),
-    ];
+    let x11: [(&str, &[&str]); 1] = [("xclip", &["-selection", "clipboard", "-o"])];
+    let wayland: [(&str, &[&str]); 1] = [("wl-paste", &["--no-newline"])];
+
+    let readers: Vec<(&str, &[&str])> = if std::env::var_os("DISPLAY").is_some() {
+        x11.iter().chain(wayland.iter()).copied().collect()
+    } else {
+        wayland.iter().chain(x11.iter()).copied().collect()
+    };
+
     for (cmd, args) in readers {
         if let Some(text) = run_capture(cmd, args, std::time::Duration::from_millis(1500)) {
             return text;

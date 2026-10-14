@@ -122,9 +122,13 @@ RDM confirms a recognized download before it starts — IDM's model.
 
 | Trigger | What happens |
 |---|---|
-| You copy a link (clipboard monitoring on) | The window opens with the name, size, type and folder |
+| You copy a link — **with clipboard monitoring on** | The window opens with the name, size, type and folder |
 | **New** / `Ctrl+N`, or the tray's **Add URL…** | The same window, empty |
 | The browser extension | Queues straight away — unless *Options → Downloads → …also for browser downloads* is on |
+
+> Clipboard monitoring is **off by default** (polling the clipboard raises a
+> transient popup surface on some Wayland setups). Turn on *Options → Downloads →
+> watch the clipboard* and copied links start opening this window.
 
 The window shows what RDM probed (name, size, type, category) and lets you change
 the address, file name, folder, queue and connection count. Then:
