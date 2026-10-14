@@ -137,8 +137,39 @@ pub fn is_available() -> bool {
     find_binary().is_some()
 }
 
+/// Whether a URL points at YouTube. Host-based and conservative, like the site
+/// detection in the good extractor front-ends: a CDN URL that merely mentions
+/// "youtube" in a query string is not YouTube, and must not get its arguments.
+pub fn is_youtube(url: &str) -> bool {
+    let Ok(parsed) = url::Url::parse(url) else {
+        return false;
+    };
+    let Some(host) = parsed.host_str() else {
+        return false;
+    };
+    let host = host.trim_start_matches("www.").to_ascii_lowercase();
+    host == "youtu.be"
+        || host == "youtube.com"
+        || host.ends_with(".youtube.com")
+        || host == "youtube-nocookie.com"
+        || host.ends_with(".youtube-nocookie.com")
+}
+
+/// Per-site extractor arguments. YouTube's default client answers with a single
+/// 360p format (measured: 5 formats, heights `[360]`), while `web_safari`
+/// returns the whole ladder — `[1080, 720, 480, 360, 240, 144]` — for the same
+/// session, which is what makes a quality picker mean anything. `default` stays
+/// in the list as the fallback for videos where the Safari client is refused.
+pub fn extractor_args(url: &str) -> Option<&'static str> {
+    is_youtube(url).then_some("youtube:player_client=web_safari,default")
+}
+
 /// The authentication / JS-runtime flags shared by every invocation.
-fn push_common(args: &mut Vec<String>, opts: &Options<'_>) {
+fn push_common(args: &mut Vec<String>, url: &str, opts: &Options<'_>) {
+    if let Some(extractor) = extractor_args(url) {
+        args.push("--extractor-args".to_string());
+        args.push(extractor.to_string());
+    }
     if let Some(js) = opts.js_runtime.filter(|v| !v.is_empty()) {
         args.push("--js-runtimes".to_string());
         args.push(js.to_string());
@@ -177,7 +208,7 @@ pub fn download_args(url: &str, template: &Path, opts: &Options<'_>) -> Vec<Stri
         "-o".to_string(),
         template.to_string_lossy().to_string(),
     ];
-    push_common(&mut args, opts);
+    push_common(&mut args, url, opts);
     args.push("--".to_string());
     args.push(url.to_string());
     args
@@ -190,7 +221,7 @@ pub fn list_args(url: &str, opts: &Options<'_>) -> Vec<String> {
         "--no-playlist".to_string(),
         "--no-warnings".to_string(),
     ];
-    push_common(&mut args, opts);
+    push_common(&mut args, url, opts);
     args.push("--".to_string());
     args.push(url.to_string());
     args
@@ -373,6 +404,35 @@ mod tests {
             {"format_id":"22","ext":"mp4","resolution":"1280x720","vcodec":"avc1.64001F","acodec":"mp4a.40.2"}
         ]}"#;
         assert_eq!(parse_heights(json), vec![720, 360]);
+    }
+
+    /// The measured difference: YouTube's default client exposes one 360p
+    /// format, `web_safari` exposes the whole ladder. Both the download and the
+    /// quality probe must ask for it, and only for YouTube.
+    #[test]
+    fn youtube_asks_for_the_client_that_has_every_quality() {
+        assert!(is_youtube("https://www.youtube.com/watch?v=x"));
+        assert!(is_youtube("https://youtu.be/x"));
+        assert!(is_youtube("https://m.youtube.com/watch?v=x"));
+        assert!(is_youtube("https://www.youtube-nocookie.com/embed/x"));
+        // A CDN URL that merely mentions YouTube is not YouTube.
+        assert!(!is_youtube("https://cdn.example.test/youtube/clip.mp4"));
+        assert!(!is_youtube("https://example.test/?ref=youtube.com"));
+        assert!(!is_youtube("not a url"));
+
+        let opts = Options::default();
+        let ladder = ["--extractor-args", "youtube:player_client=web_safari,default"];
+        let download = download_args(
+            "https://www.youtube.com/watch?v=x",
+            Path::new("/tmp/o.%(ext)s"),
+            &opts,
+        );
+        assert!(download.windows(2).any(|w| w == ladder), "{download:?}");
+        let list = list_args("https://www.youtube.com/watch?v=x", &opts);
+        assert!(list.windows(2).any(|w| w == ladder), "{list:?}");
+        // Every other site is left to yt-dlp's own defaults.
+        let other = list_args("https://vimeo.com/1", &opts);
+        assert!(!other.iter().any(|a| a == "--extractor-args"), "{other:?}");
     }
 
     #[test]
