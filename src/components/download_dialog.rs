@@ -36,7 +36,7 @@ pub fn DownloadDialog(state: Downloads) -> Element {
     let mut queue = use_signal(|| snapshot.queue.clone());
     let mut connections = use_signal(|| snapshot.connections.max(1));
     let mut dont_ask = use_signal(|| false);
-    /// Set once the user edits the name, so an extractor keeps it.
+    // Set once the user edits the name, so an extractor keeps it.
     let mut keep_name = use_signal(|| false);
     let mut probed = use_signal(|| None::<rdm_core::RemoteInfo>);
     let mut checking = use_signal(|| true);
