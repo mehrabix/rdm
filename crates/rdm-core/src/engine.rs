@@ -343,7 +343,10 @@ impl DownloadManager {
         let binary =
             ytdlp::find_binary().ok_or_else(|| Error::invalid("yt-dlp is not installed"))?;
         let js_runtime = ytdlp::find_js_runtime();
-        let browser = self.cookie_browser();
+        // Same rule as the download: a forwarded session and the browser's own
+        // cookie store must not be combined.
+        let forwarded = cookies.is_some_and(|value| !value.trim().is_empty());
+        let browser = (!forwarded).then(|| self.cookie_browser()).flatten();
         let opts = ytdlp::Options {
             cookies: cookies.filter(|value| !value.trim().is_empty()),
             user_agent,
@@ -1027,7 +1030,16 @@ impl DownloadManager {
             dir.join(format!("{stem}.%(ext)s"))
         };
 
-        let browser = self.cookie_browser();
+        // Two ways in, and they must not be combined: a session forwarded by the
+        // browser extension conflicts with yt-dlp's own read of that browser's
+        // cookie store, and the mixture is what makes YouTube answer without a
+        // usable player response (the `INNERTUBE_CONTEXT` crash). The forwarded
+        // session is the narrower, more accurate one, so it wins.
+        let forwarded = spec
+            .cookies
+            .as_deref()
+            .is_some_and(|cookies| !cookies.trim().is_empty());
+        let browser = (!forwarded).then(|| self.cookie_browser()).flatten();
         if let Some(browser) = &browser {
             tracing::debug!(%browser, "yt-dlp will read that browser's cookies");
         }
