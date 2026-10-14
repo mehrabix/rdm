@@ -309,6 +309,15 @@ and install `node`. RDM enables the EJS challenge solver automatically once a
 runtime is present, and searches the version-manager directories as well as
 `PATH` (see above), so an `nvm` `node` is found even from a desktop launch.
 
+**YouTube refuses the request — "Sign in to confirm you're not a bot", or an extractor crash like `KeyError('INNERTUBE_CONTEXT')`.**
+YouTube will not serve a session-less client. RDM reads cookies from an installed
+browser automatically (the first of Firefox, Chrome, Chromium, Edge or Brave that
+exists), and you can pick one explicitly under *Options → Browser*. Make sure you
+are **signed in to YouTube in that browser** — a logged-out profile looks
+identical to no cookies at all. The quality list is built from the same
+authenticated session, so an empty list and the "not a bot" error are the same
+problem.
+
 **The quality menu says "Sign in to confirm you're not a bot".**
 The site wants your cookies. Downloading from the extension always forwards
 them; the quality menu does too, so reload the extension if you see this on an
