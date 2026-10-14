@@ -15,7 +15,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use futures::stream::{FuturesUnordered, StreamExt};
 use reqwest::{Client, Response};
 use tokio::fs::OpenOptions;
-use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
+use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 use tokio::sync::{broadcast, Semaphore};
 use tokio::sync::{Mutex, RwLock};
 use tokio_util::sync::CancellationToken;
@@ -1048,13 +1048,49 @@ impl DownloadManager {
         command
             .args(ytdlp::download_args(&spec.url, &template, &opts))
             .stdin(std::process::Stdio::null())
-            .stdout(std::process::Stdio::null())
+            .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())
             .kill_on_drop(true);
 
         let mut child = command
             .spawn()
             .map_err(|err| Error::internal(format!("could not run yt-dlp: {err}")))?;
+
+        // yt-dlp is not our transfer loop, so its progress has to be read from
+        // what it prints: without this the row sits at 0% while bytes flow.
+        let progress_reader = {
+            let stdout = child.stdout.take();
+            let tasks = self.tasks.clone();
+            let events = self.events.clone();
+            let task_id = id.to_string();
+            tokio::spawn(async move {
+                let Some(stdout) = stdout else { return };
+                let mut lines = tokio::io::BufReader::new(stdout).lines();
+                while let Ok(Some(line)) = lines.next_line().await {
+                    let Some(update) = ytdlp::parse_progress(&line) else {
+                        continue;
+                    };
+                    let mut guard = tasks.write().await;
+                    if let Some(task) = guard.get_mut(&task_id) {
+                        if let Some(total) = update.total {
+                            task.total = Some(total);
+                        }
+                        if let Some(done) = update.downloaded {
+                            task.downloaded = done;
+                        }
+                        if let Some(speed) = update.speed {
+                            task.speed = speed;
+                        }
+                        if let Some(eta) = update.eta_secs {
+                            task.eta_secs = Some(eta);
+                        }
+                        let _ = events.send(EngineEvent::Progress {
+                            update: ProgressUpdate::from_task(task),
+                        });
+                    }
+                }
+            })
+        };
 
         let status = loop {
             if control.cancel.is_cancelled() {
@@ -1070,6 +1106,7 @@ impl DownloadManager {
                 None => tokio::time::sleep(Duration::from_millis(300)).await,
             }
         };
+        progress_reader.abort();
 
         if !status.success() {
             let mut stderr = String::new();

@@ -227,6 +227,89 @@ pub fn list_args(url: &str, opts: &Options<'_>) -> Vec<String> {
     args
 }
 
+/// One `[download]` progress line from yt-dlp, as far as it can be understood.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Progress {
+    pub percent: f64,
+    pub total: Option<u64>,
+    pub downloaded: Option<u64>,
+    /// Bytes per second.
+    pub speed: Option<f64>,
+    pub eta_secs: Option<u64>,
+}
+
+/// Parse a yt-dlp progress line: `--newline` gives one per update, like
+/// `[download]  12.3% of  123.45MiB at  1.23MiB/s ETA 00:12`.
+///
+/// yt-dlp is not our own transfer loop, so this is the only way its progress
+/// reaches the table — without it a download in flight looks dead.
+pub fn parse_progress(line: &str) -> Option<Progress> {
+    let rest = line.trim().strip_prefix("[download]")?.trim();
+    let percent: f64 = rest.split('%').next()?.trim().parse().ok()?;
+
+    let mut total = None;
+    if let Some(index) = rest.find(" of ") {
+        let tail = &rest[index + 4..];
+        let size = tail.split(" at ").next()?.split(" in ").next()?.trim();
+        total = parse_size(size.trim_start_matches(['~', '\u{2248}']).trim());
+    }
+
+    let mut speed = None;
+    if let Some(index) = rest.find(" at ") {
+        let tail = &rest[index + 4..];
+        if let Some(value) = tail.split_whitespace().next() {
+            speed = parse_size(value.strip_suffix("/s").unwrap_or(value))
+                .map(|bytes| bytes as f64);
+        }
+    }
+
+    let eta_secs = rest
+        .find("ETA ")
+        .and_then(|index| parse_clock(rest[index + 4..].trim()));
+
+    Some(Progress {
+        percent,
+        total,
+        downloaded: total.map(|total| ((percent / 100.0) * total as f64) as u64),
+        speed,
+        eta_secs,
+    })
+}
+
+/// `"123.45MiB"` / `"1.5GiB"` / `"900B"` as bytes.
+fn parse_size(value: &str) -> Option<u64> {
+    let value = value.trim();
+    if value.is_empty() {
+        return None;
+    }
+    let split = value
+        .find(|c: char| !c.is_ascii_digit() && c != '.')
+        .unwrap_or(value.len());
+    let (number, unit) = value.split_at(split);
+    let number: f64 = number.trim().parse().ok()?;
+    let factor = match unit.trim().to_ascii_lowercase().as_str() {
+        "" | "b" => 1.0,
+        "kb" | "kib" => 1024.0,
+        "mb" | "mib" => 1024.0 * 1024.0,
+        "gb" | "gib" => 1024.0 * 1024.0 * 1024.0,
+        "tb" | "tib" => 1024.0 * 1024.0 * 1024.0 * 1024.0,
+        _ => return None,
+    };
+    Some((number * factor) as u64)
+}
+
+/// `"00:12"` or `"01:02:03"` as seconds.
+fn parse_clock(value: &str) -> Option<u64> {
+    let mut seconds = 0u64;
+    let mut parts = 0;
+    for part in value.split(':') {
+        let part: u64 = part.trim().parse().ok()?;
+        seconds = seconds * 60 + part;
+        parts += 1;
+    }
+    (parts > 0).then_some(seconds)
+}
+
 /// A short, actionable hint for the errors that need one, else `None`.
 ///
 /// yt-dlp's own messages say *what* failed but not what RDM needs from you.
@@ -404,6 +487,36 @@ mod tests {
             {"format_id":"22","ext":"mp4","resolution":"1280x720","vcodec":"avc1.64001F","acodec":"mp4a.40.2"}
         ]}"#;
         assert_eq!(parse_heights(json), vec![720, 360]);
+    }
+
+    /// yt-dlp's own numbers are the only progress the table gets for a download
+    /// it runs, so the parser has to cope with the shapes it prints.
+    #[test]
+    fn progress_lines_are_understood() {
+        let update = parse_progress("[download]  12.3% of  123.45MiB at  1.23MiB/s ETA 00:12")
+            .expect("a mid-download line");
+        assert!((update.percent - 12.3).abs() < 0.001);
+        assert_eq!(update.total, Some(129_446_707));
+        assert_eq!(update.downloaded, Some(15_921_944));
+        assert_eq!(update.speed, Some(1_289_748.0));
+        assert_eq!(update.eta_secs, Some(12));
+
+        assert_eq!(parse_progress("[download] 100% of 900B in 00:01").unwrap().total, Some(900));
+        assert_eq!(
+            parse_progress("[download]  50.0% of ~1.50GiB at Unknown ETA Unknown")
+                .unwrap()
+                .speed,
+            None
+        );
+        assert_eq!(
+            parse_progress("[download]  50.0% of 1.50GiB at 2.00MiB/s ETA 01:02:03")
+                .unwrap()
+                .eta_secs,
+            Some(3723)
+        );
+
+        assert!(parse_progress("[info] Downloading 1 format(s): 18").is_none());
+        assert!(parse_progress("").is_none());
     }
 
     /// The measured difference: YouTube's default client exposes one 360p
