@@ -130,6 +130,16 @@ pub fn is_declined(url: &str) -> bool {
         .unwrap_or(false)
 }
 
+/// Whether an existing task should absorb another request for the same URL.
+/// Finished downloads do (the user sees the row they already have); failures do
+/// not, because the user asking again means "try it again".
+fn blocks_repeat(status: DownloadStatus) -> bool {
+    !matches!(
+        status,
+        DownloadStatus::Failed | DownloadStatus::Cancelled
+    )
+}
+
 /// Whether the confirmation window is already showing this download.
 fn same_offer(open: &PendingDownload, pending: &PendingDownload) -> bool {
     open.url == pending.url
@@ -153,8 +163,20 @@ mod tests {
             content_type: None,
             height: None,
             title: None,
+            keep_name: false,
             source,
         }
+    }
+
+    /// A failed download must not stop the user from trying the same URL again.
+    #[test]
+    fn only_live_or_finished_downloads_block_a_repeat() {
+        assert!(blocks_repeat(DownloadStatus::Queued));
+        assert!(blocks_repeat(DownloadStatus::Downloading));
+        assert!(blocks_repeat(DownloadStatus::Paused));
+        assert!(blocks_repeat(DownloadStatus::Completed));
+        assert!(!blocks_repeat(DownloadStatus::Failed));
+        assert!(!blocks_repeat(DownloadStatus::Cancelled));
     }
 
     /// The same link reported twice must not re-open (and reset) the window.
@@ -303,6 +325,8 @@ pub struct PendingDownload {
     pub height: Option<u32>,
     /// What the page says the file is called (from the browser).
     pub title: Option<String>,
+    /// The user edited the file name in the window, so keep it.
+    pub keep_name: bool,
     pub source: OfferSource,
 }
 
@@ -326,6 +350,7 @@ impl PendingDownload {
             content_type: None,
             height: None,
             title: None,
+            keep_name: false,
             source,
         }
     }
@@ -345,6 +370,7 @@ impl PendingDownload {
             content_type: spec.content_type.clone(),
             height: spec.max_height,
             title: spec.title.clone(),
+            keep_name: spec.keep_name,
             source,
         }
     }
@@ -390,6 +416,7 @@ impl PendingDownload {
         spec.content_type = self.content_type.clone();
         spec.max_height = self.height;
         spec.title = self.title.clone();
+        spec.keep_name = self.keep_name;
         spec.start_paused = later;
         spec
     }
@@ -583,6 +610,8 @@ impl Downloads {
     /// call is still pending would cancel it — which is exactly how "Start
     /// Download" managed to do nothing.
     pub async fn offer_now(&self, pending: PendingDownload, settings: &Settings) {
+        // A previous attempt that failed or was cancelled must not block a retry.
+        self.clear_dead_attempts(&pending.url);
         // Asking twice about the same URL is noise; show the row it already has.
         if let Some(existing) = self.find_by_url(&pending.url) {
             self.select(Some(existing));
@@ -597,8 +626,10 @@ impl Downloads {
             tracing::debug!(url = %pending.url, "already asking about this download");
             return;
         }
-        // The user already said no to this link in this session.
-        if is_declined(&pending.url) {
+        // The user already said no to this link — but only the clipboard is
+        // ignored for it: clicking the badge or typing the URL again is an
+        // explicit request, and must not be silently swallowed.
+        if pending.source == OfferSource::Clipboard && is_declined(&pending.url) {
             tracing::debug!(url = %pending.url, "already declined; not offering again");
             return;
         }
@@ -640,15 +671,31 @@ impl Downloads {
         set(self.pending, None);
     }
 
-    /// Id of an existing task for `url`, whatever its state. Used to avoid
-    /// queuing the same URL twice (the clipboard monitor can see a URL more than
-    /// once as the clipboard changes).
+    /// Id of an existing task for `url` that should absorb a new request: one
+    /// still queued/running, or already finished. A **failed or cancelled**
+    /// attempt is deliberately ignored — treating it as "already queued" is why
+    /// retrying a URL that failed once appeared to do nothing at all.
     fn find_by_url(&self, url: &str) -> Option<String> {
         self.tasks
             .read()
             .iter()
-            .find(|task| task.spec.url == url)
+            .find(|task| task.spec.url == url && blocks_repeat(task.status))
             .map(|task| task.id.clone())
+    }
+
+    /// Forget the failed/cancelled attempts for `url`, so the retry the user just
+    /// asked for is the only row.
+    fn clear_dead_attempts(&self, url: &str) {
+        let dead: Vec<String> = self
+            .tasks
+            .read()
+            .iter()
+            .filter(|task| task.spec.url == url && !blocks_repeat(task.status))
+            .map(|task| task.id.clone())
+            .collect();
+        for id in dead {
+            self.remove(id);
+        }
     }
 
     /// Every http(s) URL in `raw` — newline separated, or the path to a `.txt`

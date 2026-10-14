@@ -163,6 +163,8 @@ async fn add(
     spec.max_height = height.filter(|h| *h > 0);
     spec.content_type = content_type;
     spec.title = title.filter(|title| !title.trim().is_empty());
+    // An explicit name came from the caller, so honour it exactly.
+    spec.keep_name = spec.file_name.is_some();
 
     // Hand it to the app when it wants to confirm downloads. `ok` with no id
     // means "offered, not queued yet" — the caller (the extension) only reports

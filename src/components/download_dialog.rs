@@ -36,6 +36,8 @@ pub fn DownloadDialog(state: Downloads) -> Element {
     let mut queue = use_signal(|| snapshot.queue.clone());
     let mut connections = use_signal(|| snapshot.connections.max(1));
     let mut dont_ask = use_signal(|| false);
+    /// Set once the user edits the name, so an extractor keeps it.
+    let mut keep_name = use_signal(|| false);
     let mut probed = use_signal(|| None::<rdm_core::RemoteInfo>);
     let mut checking = use_signal(|| true);
     let mut error = use_signal(|| None::<String>);
@@ -96,6 +98,7 @@ pub fn DownloadDialog(state: Downloads) -> Element {
         dir.read().clone(),
         queue.read().clone(),
         *connections.read(),
+        *keep_name.read(),
         &t("dlg.info.error_url"),
     ) {
         Ok((value, organize)) => {
@@ -118,6 +121,7 @@ pub fn DownloadDialog(state: Downloads) -> Element {
         dir.read().clone(),
         queue.read().clone(),
         *connections.read(),
+        *keep_name.read(),
         &t("dlg.info.error_url"),
     ) {
         Ok((value, organize)) => {
@@ -165,7 +169,13 @@ pub fn DownloadDialog(state: Downloads) -> Element {
                 div { class: "grid grid-cols-2 gap-3",
                     label { class: "flex flex-col gap-1.5",
                         span { class: "text-xs font-medium text-muted-foreground", Tr { k: "dlg.info.file_name" } }
-                        Input { value: file_name, oninput: move |value| file_name.set(value) }
+                        Input {
+                            value: file_name,
+                            oninput: move |value| {
+                                file_name.set(value);
+                                keep_name.set(true);
+                            },
+                        }
                     }
                     label { class: "flex flex-col gap-1.5",
                         span { class: "text-xs font-medium text-muted-foreground", Tr { k: "dlg.info.save_to" } }
@@ -259,6 +269,7 @@ fn prepare(
     dir: String,
     queue: String,
     connections: u8,
+    keep_name: bool,
     error_url: &str,
 ) -> Result<(PendingDownload, bool), String> {
     let url = url.trim().to_string();
@@ -273,6 +284,7 @@ fn prepare(
     value.file_name = (!name.is_empty()).then(|| name.to_string());
     value.queue = queue;
     value.connections = connections.max(1);
+    value.keep_name = keep_name;
 
     let current = settings.get();
     let organize = current.organize_by_category;

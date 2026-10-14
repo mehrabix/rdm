@@ -201,6 +201,10 @@ pub struct DownloadSpec {
     /// Used to name the file when the URL's own stem is useless (`watch`).
     #[serde(default)]
     pub title: Option<String>,
+    /// The caller (or the user, in the window) chose `file_name` deliberately,
+    /// so an extractor must not rename the file after the media's own title.
+    #[serde(default)]
+    pub keep_name: bool,
 }
 
 impl DownloadSpec {
@@ -223,6 +227,7 @@ impl DownloadSpec {
             content_type: None,
             start_paused: false,
             title: None,
+            keep_name: false,
         }
     }
 

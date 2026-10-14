@@ -1004,7 +1004,10 @@ impl DownloadManager {
             .and_then(|s| s.to_str())
             .unwrap_or("video")
             .to_string();
-        let named_by_title = spec.title.is_none() && util::is_generic_stem(&stem);
+        // Who names the file. An extractor knows the media's real title, and a
+        // derived stem is usually a route (`watch`) or an SEO-suffixed page
+        // title, so yt-dlp names it unless the caller asked for a specific name.
+        let named_by_title = !spec.keep_name;
         let template = if named_by_title {
             dir.join("%(title)s.%(ext)s")
         } else {
