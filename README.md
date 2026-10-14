@@ -361,6 +361,9 @@ The exhaustive IDM-parity matrix and roadmap: [masterplan §9–10](docs/MASTERP
 
 ## Build from source
 
+Contributing? [CONTRIBUTING.md](CONTRIBUTING.md) has the setup, the test
+conventions and the style rules. The short version:
+
 Prerequisites (Debian/Ubuntu shown; the full list is in
 [masterplan §12](docs/MASTERPLAN.md#12-build--run)):
 
