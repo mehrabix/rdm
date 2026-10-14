@@ -10,7 +10,7 @@ use rdm_core::{
     Category, DownloadManager, DownloadSpec, DownloadStatus, DownloadTask, EngineConfig, Found,
 };
 
-use crate::settings;
+use crate::settings::{self, OfferSource, Settings};
 
 /// The single engine instance, shared by every component. Sized from the
 /// settings loaded at startup.
@@ -31,6 +31,22 @@ pub fn engine() -> Arc<DownloadManager> {
             DownloadManager::new(config).expect("failed to construct the RDM download engine")
         })
         .clone()
+}
+
+/// The browser gate: [`rdm_core::ipc::serve`] holds the sender, and the app
+/// drains the receiver so each handed-over download can be confirmed first.
+static GATE: OnceLock<tokio::sync::mpsc::UnboundedSender<DownloadSpec>> = OnceLock::new();
+
+/// Create the gate channel once, returning the receiving end for the app.
+pub fn init_gate() -> tokio::sync::mpsc::UnboundedReceiver<DownloadSpec> {
+    let (sender, receiver) = tokio::sync::mpsc::unbounded_channel();
+    let _ = GATE.set(sender);
+    receiver
+}
+
+/// The sender the IPC server needs, available once the app installed the gate.
+pub fn gate_sender() -> Option<tokio::sync::mpsc::UnboundedSender<DownloadSpec>> {
+    GATE.get().cloned()
 }
 
 /// Left-hand category rail, mirroring IDM's buckets.
@@ -122,6 +138,87 @@ pub struct Downloads {
     pub grab_selected: Signal<Vec<String>>,
     pub grab_busy: Signal<bool>,
     pub grab_error: Signal<Option<String>>,
+    /// A download waiting for the user in the "Download File Info" window.
+    pub pending: Signal<Option<PendingDownload>>,
+}
+
+/// A recognized download that has not started yet — everything the
+/// "Download File Info" window shows and edits.
+#[derive(Clone, PartialEq)]
+pub struct PendingDownload {
+    pub url: String,
+    pub dir: PathBuf,
+    pub file_name: Option<String>,
+    pub queue: String,
+    pub connections: u8,
+    pub referer: Option<String>,
+    pub cookies: Option<String>,
+    pub user_agent: Option<String>,
+    pub content_type: Option<String>,
+    pub height: Option<u32>,
+    pub source: OfferSource,
+}
+
+impl PendingDownload {
+    /// A download for `url` filled from the current preferences (the manual and
+    /// clipboard cases).
+    pub fn new(url: String, settings: &Settings, source: OfferSource) -> Self {
+        Self {
+            url,
+            dir: settings.download_dir.clone(),
+            file_name: None,
+            queue: settings
+                .queue_names()
+                .into_iter()
+                .next()
+                .unwrap_or_else(|| "Main".to_string()),
+            connections: settings.connections.max(1),
+            referer: None,
+            cookies: None,
+            user_agent: None,
+            content_type: None,
+            height: None,
+            source,
+        }
+    }
+
+    /// The same window, for a download the browser handed over: the spec's
+    /// cookies, referer and media type must survive the round trip.
+    pub fn from_spec(spec: &rdm_core::DownloadSpec, source: OfferSource) -> Self {
+        Self {
+            url: spec.url.clone(),
+            dir: spec.output_dir.clone(),
+            file_name: spec.file_name.clone(),
+            queue: spec.queue.clone(),
+            connections: spec.connections.max(1),
+            referer: spec.referer.clone(),
+            cookies: spec.cookies.clone(),
+            user_agent: spec.user_agent.clone(),
+            content_type: spec.content_type.clone(),
+            height: spec.max_height,
+            source,
+        }
+    }
+
+    /// The spec to queue when the user presses Start (or Download Later).
+    pub fn spec(&self, organize: bool, later: bool) -> rdm_core::DownloadSpec {
+        let mut spec =
+            rdm_core::DownloadSpec::new(self.url.clone(), self.dir.clone())
+                .connections(self.connections.max(1));
+        spec.queue = self.queue.clone();
+        spec.organize = organize;
+        spec.file_name = self
+            .file_name
+            .clone()
+            .filter(|name| !name.trim().is_empty());
+        spec.referer = self.referer.clone();
+        spec.cookies = self.cookies.clone();
+        spec.user_agent = self.user_agent.clone();
+        spec.content_type = self.content_type.clone();
+        spec.max_height = self.height;
+        spec.start_paused = later;
+        spec
+    }
 }
 
 impl Downloads {
@@ -179,10 +276,6 @@ impl Downloads {
         set(self.show_add, true);
     }
 
-    pub fn close_add(&self) {
-        set(self.show_add, false);
-    }
-
     // ---- site grabber ----------------------------------------------------
 
     pub fn open_grab(&self) {
@@ -223,10 +316,6 @@ impl Downloads {
 
     pub fn close_options(&self) {
         set(self.show_options, false);
-    }
-
-    pub fn set_connections(&self, n: u8) {
-        set(self.connections, n.clamp(1, 32));
     }
 
     /// Stop a queue: its running transfers pause and new ones wait.
@@ -277,19 +366,64 @@ impl Downloads {
         dir: PathBuf,
         organize: bool,
     ) -> rdm_core::Result<()> {
-        if let Some(existing) = self.find_by_url(&url) {
-            self.select(Some(existing));
-            return Ok(());
-        }
-
         let connections = *self.connections.read();
         let queue = self.queue.read().clone();
         let mut spec = DownloadSpec::new(url, dir).connections(connections);
         spec.queue = queue;
         // The engine picks the per-category folder after it probes.
         spec.organize = organize;
+        self.try_add_spec(spec).await
+    }
 
+    /// The full-spec variant of [`try_add`](Self::try_add): the
+    /// "Download File Info" window and the browser gate carry cookies, referer,
+    /// media type and queue, which the three-argument form cannot express.
+    pub async fn try_add_spec(&self, spec: DownloadSpec) -> rdm_core::Result<()> {
+        if let Some(existing) = self.find_by_url(&spec.url) {
+            self.select(Some(existing));
+            return Ok(());
+        }
         engine().add(spec).await.map(|_| ())
+    }
+
+    // ---- the "Download File Info" window ---------------------------------
+
+    /// Offer a recognized download: open the confirmation window, or queue it
+    /// silently when the source is not confirmed (or has been silenced).
+    pub fn offer(&self, pending: PendingDownload, settings: &Settings) {
+        // Asking twice about the same URL is noise; show the row it already has.
+        if let Some(existing) = self.find_by_url(&pending.url) {
+            self.select(Some(existing));
+            return;
+        }
+        if settings::should_confirm(settings, pending.source) {
+            set(self.pending, Some(pending));
+            return;
+        }
+        let organize = settings.organize_by_category;
+        let state = *self;
+        spawn(async move {
+            if let Err(err) = state.start_pending(pending, organize, false).await {
+                tracing::error!(%err, "could not queue download");
+            }
+        });
+    }
+
+    /// Queue the pending download and close the window. `later` is IDM's
+    /// "Download Later": the row appears paused until it is resumed.
+    pub async fn start_pending(
+        &self,
+        pending: PendingDownload,
+        organize: bool,
+        later: bool,
+    ) -> rdm_core::Result<()> {
+        set(self.pending, None);
+        self.try_add_spec(pending.spec(organize, later)).await
+    }
+
+    /// Close the window without queueing anything.
+    pub fn dismiss_pending(&self) {
+        set(self.pending, None);
     }
 
     /// Id of an existing task for `url`, whatever its state. Used to avoid
@@ -303,24 +437,31 @@ impl Downloads {
             .map(|task| task.id.clone())
     }
 
-    /// Queue every http(s) URL in `raw` — newline separated, or a path to a
-    /// `.txt` file. Returns how many were queued.
-    pub fn import_text(&self, raw: &str, base: PathBuf, organize: bool) -> usize {
+    /// Every http(s) URL in `raw` — newline separated, or the path to a `.txt`
+    /// file holding them. Shared by the batch window and the clipboard import.
+    pub fn urls_in(raw: &str) -> Vec<String> {
         let trimmed = raw.trim();
         let content = if !trimmed.contains('\n') && trimmed.ends_with(".txt") {
             std::fs::read_to_string(trimmed).unwrap_or_else(|_| raw.to_string())
         } else {
             raw.to_string()
         };
-        let mut queued = 0;
-        for line in content.lines() {
-            let url = line.trim();
-            if url.starts_with("http://") || url.starts_with("https://") {
-                self.add(url.to_string(), base.clone(), organize);
-                queued += 1;
-            }
+        content
+            .lines()
+            .map(str::trim)
+            .filter(|line| line.starts_with("http://") || line.starts_with("https://"))
+            .map(str::to_string)
+            .collect()
+    }
+
+    /// Queue every http(s) URL in `raw` — newline separated, or a path to a
+    /// `.txt` file. Returns how many were queued.
+    pub fn import_text(&self, raw: &str, base: PathBuf, organize: bool) -> usize {
+        let urls = Self::urls_in(raw);
+        for url in &urls {
+            self.add(url.clone(), base.clone(), organize);
         }
-        queued
+        urls.len()
     }
 
     pub fn pause(&self, id: String) {
@@ -514,6 +655,7 @@ pub fn use_downloads() -> Downloads {
     let grab_selected = use_signal(Vec::<String>::new);
     let grab_busy = use_signal(|| false);
     let grab_error = use_signal(|| None::<String>);
+    let pending = use_signal(|| None::<PendingDownload>);
     let connections = use_signal(|| settings::boot().connections.max(1));
     let queue = use_signal(|| {
         settings::boot()
@@ -564,6 +706,7 @@ pub fn use_downloads() -> Downloads {
         grab_selected,
         grab_busy,
         grab_error,
+        pending,
         connections,
         queue,
     }

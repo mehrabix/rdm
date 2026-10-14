@@ -334,7 +334,7 @@ aim at real parity rather than a guess at what IDM does.
 | "Download with RDM" context menu | ✅ |
 | Advanced integration: catch downloads from any app | ⬜ |
 | "Download All" — every link on the page | ⬜ |
-| Clipboard import (manual menu item) ✅; automatic monitor ⬜ Phase 5 | 🟡 |
+| Clipboard import (manual menu item) ✅; automatic monitor ✅ (opt-in), with the IDM-style confirmation window | ✅ |
 | Batch import (paste a list, or a `.txt` path) | ✅ |
 | Drag & drop links in / downloaded files out | ⬜ Phase 2 |
 | Site spider & grabber (filters, subsets, offline browsing) | 🟡 crawl + filters ✅; offline browsing ⬜ |

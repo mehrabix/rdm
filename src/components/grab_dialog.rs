@@ -1,8 +1,8 @@
 use dioxus::prelude::*;
 
 use crate::i18n::{use_t, Tr};
-use crate::settings::use_settings;
-use crate::state::{engine, Downloads};
+use crate::settings::{use_settings, OfferSource};
+use crate::state::{engine, Downloads, PendingDownload};
 use crate::ui::button::{Button, ButtonVariant};
 use crate::ui::dialog::Dialog;
 use crate::ui::input::Input;
@@ -80,10 +80,12 @@ pub fn GrabDialog(state: Downloads) -> Element {
 
     let download = move |_| {
         let current = settings.get();
-        let dir = current.download_dir.clone();
-        let organize = current.organize_by_category;
         for url in selected.read().clone() {
-            state.add(url, dir.clone(), organize);
+            // The grabber has its own selection window: no second confirmation.
+            let mut pending =
+                PendingDownload::new(url, &current, OfferSource::Grabber);
+            pending.dir = current.download_dir.clone();
+            state.offer(pending, &current);
         }
         state.close_grab();
     };

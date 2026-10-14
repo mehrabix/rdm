@@ -366,6 +366,37 @@ async fn a_stopped_queue_holds_its_downloads_until_started() {
     assert_eq!(std::fs::read(dir.path().join("held.bin")).unwrap(), data);
 }
 
+/// IDM's "Download Later": the task is created and visible, but nothing
+/// transfers until it is resumed.
+#[tokio::test]
+async fn a_later_download_waits_until_resumed() {
+    let data = payload(16 * 1024);
+    let addr = spawn_server(data.clone(), true).await;
+    let dir = tempfile::tempdir().unwrap();
+    let mgr = DownloadManager::new(EngineConfig::default()).unwrap();
+
+    let spec = DownloadSpec::new(format!("http://{addr}/later.bin"), dir.path()).start_paused();
+    let id = mgr.add(spec).await.unwrap();
+
+    assert_eq!(
+        mgr.get(&id).await.unwrap().status,
+        DownloadStatus::Paused,
+        "a later download must not start on its own"
+    );
+
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    assert_eq!(mgr.get(&id).await.unwrap().status, DownloadStatus::Paused);
+    assert!(
+        !dir.path().join("later.bin").exists(),
+        "nothing may be written before it is resumed"
+    );
+
+    mgr.resume(&id).await.unwrap();
+    let task = wait_until_terminal(&mgr, &id, Duration::from_secs(20)).await;
+    assert_eq!(task.status, DownloadStatus::Completed, "error: {:?}", task.error);
+    assert_eq!(std::fs::read(dir.path().join("later.bin")).unwrap(), data);
+}
+
 /// Live network check (ignored by default). HTTPS probing must work with the
 /// system root certificates — otherwise every real download fails silently.
 /// Run with: cargo test -p rdm-core -- --ignored probe_live_https

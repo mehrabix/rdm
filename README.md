@@ -1,6 +1,6 @@
 # RDM — Rust Download Manager
 
-A fast, resumable, **multi-connection** download manager for **Linux, Windows and
+A fast, resumable, **cross-platform** download manager for **Linux, Windows and
 macOS**, written in Rust. Think Internet Download Manager, but native — one
 binary, no Electron, built on a headless engine you can test without a display.
 
@@ -116,16 +116,40 @@ each channel is waiting on.
 Files are organized into category folders (Video, Audio, Documents, Programs,
 Archives, Other) when **Organize by category** is on.
 
+## Download File Info
+
+RDM confirms a recognized download before it starts — IDM's model.
+
+| Trigger | What happens |
+|---|---|
+| You copy a link (clipboard monitoring on) | The window opens with the name, size, type and folder |
+| **New** / `Ctrl+N`, or the tray's **Add URL…** | The same window, empty |
+| The browser extension | Queues straight away — unless *Options → Downloads → …also for browser downloads* is on |
+
+The window shows what RDM probed (name, size, type, category) and lets you change
+the address, file name, folder, queue and connection count. Then:
+
+- **Start Download** — queue it and go.
+- **Download Later** — queue it **paused**, ready for the scheduler or a manual
+  *Resume*.
+- **Cancel** — nothing is queued at all.
+- **Don't show this dialog again** — silences that source; *Options → Reset
+  silenced prompts* brings it back.
+
+Nothing transfers until you press Start, so a mis-detected link never costs you
+bandwidth.
+
 ## Everyday use
 
 | Task | How |
 |---|---|
+| Add one URL | **New** / `Ctrl+N` — or the tray's *Add URL…* — opens the window above |
 | Add a batch | Paste many URLs into the *New* dialog, one per line |
 | Named queues | Assign a download to a queue; each queue has its own limit and concurrency |
 | Global speed limit | Options → Downloads |
 | Per-download limit | Select the row → detail panel → speed limit |
 | Schedule | Options → Scheduler: allow downloads inside a daily time window |
-| Tray menu | Right-click the tray icon: live downloads with percentage, *Pause all*, *Resume all*, *Exit* |
+| Tray menu | Right-click the tray icon: live downloads with percentage, *Add URL…*, *Pause all*, *Resume all*, *Exit* |
 | Grab a whole site | **Tasks → Site grabber**: enter a page, depth, include/exclude globs, then tick what to download |
 | Theme | Options → Appearance: Dark / Light / System |
 | Language | Options → Appearance — shipped: **en, es, fr, de, pt, ru, zh, fa**. The picker lists only languages that are actually translated; RTL layouts (Persian) switch automatically |
@@ -318,6 +342,7 @@ startup so the UI can't half-switch. Pick one from the list, then restart.
 | Settings persisted to `~/.config/rdm/config.toml`; Dark/Light/System theme | ✅ |
 | Queue persistence + restore on launch, throughput graph | ✅ |
 | Automation: batch + clipboard import, category folders, duplicate detection, daily-window scheduler | ✅ |
+| "Download File Info" window: Start / Download Later (queued paused) / Cancel, probed size & type, per-source "don't ask again" | ✅ |
 | Languages: en, es, fr, de, pt, ru, zh, fa — the picker lists exactly what translates | ✅ |
 | Distribution: apt, dnf/zypper, Homebrew, Scoop, Snap (edge), AppImage/`.dmg`/`.msi` installers | ✅ |
 | winget, AUR, Flathub, Chocolatey | ⬜ accounts/PRs pending |

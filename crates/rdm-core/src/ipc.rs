@@ -120,6 +120,10 @@ pub struct ServeOptions {
     pub organize_by_category: bool,
     pub connections: u8,
     pub queue: String,
+    /// When set, an `Add` is *offered* here instead of queued, so the app can
+    /// confirm it first (IDM's "Download File Info") or refuse it. A closed
+    /// channel falls back to queueing, so a crashed UI never drops downloads.
+    pub gate: Option<tokio::sync::mpsc::UnboundedSender<DownloadSpec>>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -153,6 +157,15 @@ async fn add(
     spec.organize = opts.organize_by_category;
     spec.max_height = height.filter(|h| *h > 0);
     spec.content_type = content_type;
+
+    // Hand it to the app when it wants to confirm downloads. `ok` with no id
+    // means "offered, not queued yet" — the caller (the extension) only reports
+    // failures, so this is a success from its point of view.
+    if let Some(gate) = &opts.gate {
+        if gate.send(spec.clone()).is_ok() {
+            return Response::ok(None);
+        }
+    }
 
     match manager.add(spec).await {
         Ok(id) => Response::ok(Some(id)),
@@ -365,6 +378,7 @@ mod tests {
             organize_by_category: false,
             connections: 4,
             queue: "Main".into(),
+            gate: None,
         };
         let serve_path = socket.clone();
         tokio::spawn(async move {

@@ -1,12 +1,12 @@
 use dioxus::prelude::*;
 
 use crate::components::{
-    AddDialog, BatchDialog, DetailPanel, GrabDialog, MenuBar, OptionsDialog, Sidebar, StatusBar,
-    Toolbar, TransferTable, Tray,
+    BatchDialog, DetailPanel, DownloadDialog, GrabDialog, MenuBar, OptionsDialog, Sidebar,
+    StatusBar, Toolbar, TransferTable, Tray,
 };
 use crate::i18n::{provide_settings, use_i18n};
-use crate::settings;
-use crate::state::use_downloads;
+use crate::settings::{self, OfferSource};
+use crate::state::{use_downloads, PendingDownload};
 
 /// Apply the theme by toggling `dark` on `<html>`. `system` follows the OS and
 /// keeps following it: a `matchMedia` listener is installed once.
@@ -52,8 +52,26 @@ pub fn App() -> Element {
     let i18n = use_i18n();
 
     let state = use_downloads();
-    let add_open = state.show_add;
     let options_open = state.show_options;
+    // The browser gate: a download handed over the local socket arrives here
+    // instead of being queued, so the window can confirm it first.
+    let mut incoming = use_signal(|| Some(crate::state::init_gate()));
+
+    // `New` / Ctrl+N opens the same window with an empty URL — the entry point is
+    // a flag, the window is one component.
+    use_effect(move || {
+        if !*state.show_add.read() {
+            return;
+        }
+        let mut state = state;
+        let current = settings.read().clone();
+        state.pending.set(Some(PendingDownload::new(
+            String::new(),
+            &current,
+            OfferSource::Manual,
+        )));
+        state.show_add.set(false);
+    });
 
     // Re-apply the theme and push the speed limit whenever a preference changes.
     use_effect(move || {
@@ -81,7 +99,12 @@ pub fn App() -> Element {
             let looks_like_url =
                 trimmed.starts_with("http://") || trimmed.starts_with("https://");
             if is_new && looks_like_url {
-                state.add(trimmed, current.download_dir.clone(), current.organize_by_category);
+                // A copied link is *offered*, so the window can ask first
+                // (IDM's clipboard capture); silenced sources queue directly.
+                state.offer(
+                    PendingDownload::new(trimmed, &current, OfferSource::Clipboard),
+                    &current,
+                );
             }
         }
     });
@@ -103,11 +126,27 @@ pub fn App() -> Element {
                 .into_iter()
                 .next()
                 .unwrap_or_else(|| "Main".to_string()),
+            gate: crate::state::gate_sender(),
         };
         let path = rdm_core::ipc::default_socket_path();
         tracing::info!(?path, "browser integration listening");
         if let Err(err) = rdm_core::ipc::serve(crate::state::engine(), path, options).await {
             tracing::warn!(%err, "browser integration stopped");
+        }
+    });
+
+    // Drain the browser gate: each handoff becomes an offer, so the window (or
+    // the silent path) decides before anything transfers.
+    use_future(move || async move {
+        let Some(mut receiver) = incoming.write().take() else {
+            return;
+        };
+        while let Some(spec) = receiver.recv().await {
+            let current = settings.read().clone();
+            state.offer(
+                PendingDownload::from_spec(&spec, OfferSource::Browser),
+                &current,
+            );
         }
     });
 
@@ -155,8 +194,8 @@ pub fn App() -> Element {
 
             StatusBar { state }
 
-            if add_open() {
-                AddDialog { state }
+            if state.pending.read().is_some() {
+                DownloadDialog { state }
             }
             if *state.show_batch.read() {
                 BatchDialog { state }

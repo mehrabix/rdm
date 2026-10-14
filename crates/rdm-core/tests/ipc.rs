@@ -5,7 +5,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use rdm_core::ipc::{self, Request, ServeOptions};
-use rdm_core::{DownloadManager, DownloadStatus, EngineConfig};
+use rdm_core::{DownloadManager, DownloadSpec, DownloadStatus, EngineConfig};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
 
@@ -93,6 +93,7 @@ fn payload(len: usize) -> Vec<u8> {
     (0..len).map(|i| (i % 251) as u8).collect()
 }
 
+#[cfg(unix)]
 #[tokio::test]
 async fn add_over_the_socket_downloads_the_file() {
     let data = payload(8192);
@@ -109,6 +110,7 @@ async fn add_over_the_socket_downloads_the_file() {
         organize_by_category: false,
         connections: 4,
         queue: "Main".into(),
+        gate: None,
     };
     tokio::spawn(async move {
         let _ = ipc::serve(serve_manager, serve_socket, opts).await;
@@ -137,6 +139,7 @@ async fn add_over_the_socket_downloads_the_file() {
     )
     .await
     .unwrap();
+
     assert!(response.ok, "unexpected error: {:?}", response.error);
     let id = response.id.unwrap();
 
@@ -157,4 +160,66 @@ async fn add_over_the_socket_downloads_the_file() {
 
     let written = std::fs::read(dir.path().join("file.bin")).unwrap();
     assert_eq!(written, data);
+}
+
+/// A gated server offers the download to the app instead of queueing it, so the
+/// UI can confirm it (IDM's "Download File Info") before anything transfers.
+#[cfg(unix)]
+#[tokio::test]
+async fn a_gated_add_is_offered_not_queued() {
+    let dir = tempfile::tempdir().unwrap();
+    let socket = dir.path().join("rdm.sock");
+    let manager = DownloadManager::new(EngineConfig::default()).unwrap();
+    let (gate, mut offered) = tokio::sync::mpsc::unbounded_channel::<DownloadSpec>();
+
+    let opts = ServeOptions {
+        download_dir: dir.path().to_path_buf(),
+        organize_by_category: false,
+        connections: 4,
+        queue: "Main".into(),
+        gate: Some(gate),
+    };
+    let serve_socket = socket.clone();
+    let serve_manager = manager.clone();
+    tokio::spawn(async move {
+        let _ = ipc::serve(serve_manager, serve_socket, opts).await;
+    });
+
+    for _ in 0..100 {
+        if socket.exists() {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+
+    let response = ipc::request(
+        &socket,
+        &Request::Add {
+            url: "https://example.test/clip.mp4".into(),
+            file_name: None,
+            referer: Some("https://example.test/page".into()),
+            cookies: None,
+            user_agent: None,
+            connections: None,
+            queue: None,
+            height: None,
+            content_type: Some("video/mp4".into()),
+        },
+    )
+    .await
+    .unwrap();
+
+    assert!(response.ok, "{response:?}");
+    assert_eq!(response.id, None, "an offered download has no id yet");
+
+    let spec = tokio::time::timeout(Duration::from_secs(2), offered.recv())
+        .await
+        .expect("the app should have been offered the download")
+        .expect("the gate must stay open");
+    assert_eq!(spec.url, "https://example.test/clip.mp4");
+    assert_eq!(spec.content_type.as_deref(), Some("video/mp4"));
+    assert_eq!(spec.referer.as_deref(), Some("https://example.test/page"));
+
+    // Offered, not queued: the engine never saw it.
+    assert!(manager.list().await.is_empty());
 }

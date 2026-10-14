@@ -5,8 +5,8 @@ use std::path::PathBuf;
 use dioxus::prelude::*;
 
 use crate::i18n::{use_t, Tr};
-use crate::settings::use_settings;
-use crate::state::Downloads;
+use crate::settings::{use_settings, OfferSource};
+use crate::state::{Downloads, PendingDownload};
 use crate::ui::button::{Button, ButtonVariant};
 use crate::ui::dialog::Dialog;
 use crate::ui::input::Input;
@@ -33,14 +33,20 @@ pub fn BatchDialog(state: Downloads) -> Element {
 
     let submit = move |_| {
         let raw = text.read().clone();
-        let base = PathBuf::from(dir.read().clone());
-        let organize = settings.get().organize_by_category;
-        let count = state.import_text(&raw, base, organize);
-        if count == 0 {
+        let destination = PathBuf::from(dir.read().clone());
+        let current = settings.get();
+        let urls = Downloads::urls_in(&raw);
+        if urls.is_empty() {
             error.set(Some(none.clone()));
             return;
         }
-        settings.update(|s| s.download_dir = PathBuf::from(dir.read().clone()));
+        settings.update(|s| s.download_dir = destination.clone());
+        // Batch imports have their own window, so they never confirm twice.
+        for url in urls {
+            let mut pending = PendingDownload::new(url, &current, OfferSource::Batch);
+            pending.dir = destination.clone();
+            state.offer(pending, &current);
+        }
         let mut open = state.show_batch;
         open.set(false);
     };

@@ -139,3 +139,23 @@ grab.select_all	Seleccionar todo	Tout sélectionner	Alle auswählen	Selecionar t
 grab.select_none	No seleccionar nada	Ne rien sélectionner	Keine auswählen	Limpar seleção	Снять выбор	全不选	حذف انتخاب
 grab.download	Descargar seleccionados	Télécharger la sélection	Auswahl herunterladen	Baixar selecionados	Скачать выбранные	下载所选	دانلود موارد انتخاب‌شده
 grab.error_url	Introduce una URL de página para explorar.	Saisissez l'URL d'une page à analyser.	Eine Seiten-URL zum Scannen eingeben.	Informe a URL de uma página para analisar.	Введите URL страницы для сканирования.	请输入要扫描的页面网址。	نشانی یک صفحه برای بررسی وارد کنید.
+dlg.info.title	Información del archivo	Informations sur le fichier	Dateiinformationen	Informações do arquivo	Сведения о файле	文件信息	اطلاعات فایل
+dlg.info.subtitle	Revísalo y pulsa iniciar: todavía no se descarga nada	Vérifiez, puis lancez : rien n'est encore téléchargé	Prüfen und dann starten – noch wird nichts geladen	Revise e inicie: nada foi baixado ainda	Проверьте и запустите — пока ничего не скачивается	确认后再开始——尚未下载任何内容	بازبینی کنید و سپس شروع کنید — هنوز چیزی دانلود نشده است
+dlg.info.url	Dirección	Adresse	Adresse	Endereço	Адрес	地址	نشانی
+dlg.info.file_name	Nombre del archivo	Nom du fichier	Dateiname	Nome do arquivo	Имя файла	文件名	نام فایل
+dlg.info.size	Tamaño	Taille	Größe	Tamanho	Размер	大小	اندازه
+dlg.info.type	Tipo	Type	Typ	Tipo	Тип	类型	نوع
+dlg.info.checking	Comprobando…	Vérification…	Prüfe…	Verificando…	Проверка…	正在检查…	در حال بررسی…
+dlg.info.save_to	Guardar en	Enregistrer dans	Speichern unter	Salvar em	Сохранить в	保存到	ذخیره در
+dlg.info.category	Categoría	Catégorie	Kategorie	Categoria	Категория	类别	دسته
+dlg.info.queue	Cola	File	Warteschlange	Fila	Очередь	队列	صف
+dlg.info.connections	Conexiones	Connexions	Verbindungen	Conexões	Соединения	连接数	اتصال‌ها
+dlg.info.start	Iniciar descarga	Lancer le téléchargement	Download starten	Iniciar download	Начать загрузку	开始下载	شروع دانلود
+dlg.info.later	Descargar más tarde	Télécharger plus tard	Später laden	Baixar depois	Скачать позже	稍后下载	دانلود بعداً
+dlg.info.cancel	Cancelar	Annuler	Abbrechen	Cancelar	Отмена	取消	لغو
+dlg.info.dont_ask	No volver a mostrar este cuadro	Ne plus afficher cette fenêtre	Dieses Fenster nicht mehr anzeigen	Não mostrar esta janela novamente	Больше не показывать это окно	不再显示此窗口	این پنجره دیگر نمایش داده نشود
+dlg.info.error_url	Introduce una dirección http(s) para descargar.	Saisissez une adresse http(s) à télécharger.	Eine http(s)-Adresse zum Herunterladen eingeben.	Informe um endereço http(s) para baixar.	Введите адрес http(s) для загрузки.	请输入要下载的 http(s) 地址。	نشانی http(s) برای دانلود وارد کنید.
+options.confirm_downloads	Mostrar la ventana de información para descargas detectadas	Afficher la fenêtre d'informations pour les téléchargements détectés	Informationsfenster für erkannte Downloads anzeigen	Mostrar a janela de informações para downloads detectados	Показывать окно сведений для обнаруженных загрузок	对检测到的下载显示文件信息窗口	نمایش پنجره اطلاعات برای دانلودهای شناسایی‌شده
+options.confirm_browser	…también para descargas del navegador	…aussi pour les téléchargements du navigateur	…auch für Browser-Downloads	…também para downloads do navegador	…также для загрузок из браузера	…浏览器下载也一样	…برای دانلودهای مرورگر هم اعمال شود
+options.reset_prompts	Restablecer avisos silenciados	Réactiver les fenêtres masquées	Stummgeschaltete Hinweise zurücksetzen	Redefinir avisos silenciados	Сбросить отключённые окна	重置已静音的提示	بازنشانی هشدارهای ساکت‌شده
+tray.add_url	Añadir URL…	Ajouter une URL…	URL hinzufügen…	Adicionar URL…	Добавить URL…	添加网址…	افزودن نشانی…

@@ -52,6 +52,8 @@ pub fn Tray(state: Downloads) -> Element {
     use_tray_menu_event_handler(move |event| match event.id().0.as_str() {
         "pause_all" => state.pause_all(),
         "resume_all" => state.resume_all(),
+        // Same window as New / Ctrl+N: the tray is just another entry point.
+        "add_url" => state.open_add(),
         "exit" => exit_app(),
         _ => {}
     });
@@ -65,12 +67,14 @@ fn build_menu(tasks: &[DownloadTask]) -> Menu {
 
     let pause_all = MenuItem::with_id("pause_all", "Pause all", true, None);
     let resume_all = MenuItem::with_id("resume_all", "Resume all", true, None);
+    let add_url = MenuItem::with_id("add_url", "Add URL…", true, None);
     // The toolkit's own quit is delivered natively (our menu-event loop is not
     // reliable under libayatana-appindicator), so it is what actually exits.
     let exit = PredefinedMenuItem::quit(Some("Exit"));
     let header = MenuItem::with_id("active", "Active downloads", false, None);
     let none = MenuItem::with_id("none", "No active downloads", false, None);
     let sep_top = PredefinedMenuItem::separator();
+    let sep_mid = PredefinedMenuItem::separator();
     let sep_bottom = PredefinedMenuItem::separator();
 
     let active: Vec<MenuItem> = tasks
@@ -80,7 +84,7 @@ fn build_menu(tasks: &[DownloadTask]) -> Menu {
         .map(|task| MenuItem::with_id(format!("task:{}", task.id), task_label(task), false, None))
         .collect();
 
-    let mut items: Vec<&dyn IsMenuItem> = vec![&pause_all, &resume_all, &sep_top, &header];
+    let mut items: Vec<&dyn IsMenuItem> = vec![&add_url, &sep_top, &pause_all, &resume_all, &sep_mid, &header];
     if active.is_empty() {
         items.push(&none);
     } else {

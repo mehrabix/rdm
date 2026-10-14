@@ -193,6 +193,10 @@ pub struct DownloadSpec {
     /// Lets a sniffed stream be routed without guessing from the URL.
     #[serde(default)]
     pub content_type: Option<String>,
+    /// Queue the download without starting it, so it waits for the user or the
+    /// scheduler (IDM's "Download Later").
+    #[serde(default)]
+    pub start_paused: bool,
 }
 
 impl DownloadSpec {
@@ -213,6 +217,7 @@ impl DownloadSpec {
             format: None,
             max_height: None,
             content_type: None,
+            start_paused: false,
         }
     }
 
@@ -233,6 +238,13 @@ impl DownloadSpec {
     pub fn content_type(mut self, content_type: impl Into<String>) -> Self {
         let value = content_type.into();
         self.content_type = (!value.trim().is_empty()).then_some(value);
+        self
+    }
+
+    /// Add this download *without* starting it (IDM's "Download Later"): it
+    /// waits in the queue until it is resumed or the scheduler window opens.
+    pub fn start_paused(mut self) -> Self {
+        self.start_paused = true;
         self
     }
 

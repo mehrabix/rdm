@@ -1,9 +1,9 @@
 pub mod icons;
 
-mod add_dialog;
 mod batch_dialog;
 mod context_menu;
 mod detail_panel;
+mod download_dialog;
 mod grab_dialog;
 mod menu_bar;
 mod options_dialog;
@@ -14,10 +14,10 @@ mod toolbar;
 mod transfer_table;
 mod tray;
 
-pub use add_dialog::AddDialog;
 pub use batch_dialog::BatchDialog;
 pub use context_menu::RowMenu;
 pub use detail_panel::DetailPanel;
+pub use download_dialog::DownloadDialog;
 pub use grab_dialog::GrabDialog;
 pub use menu_bar::MenuBar;
 pub use options_dialog::OptionsDialog;

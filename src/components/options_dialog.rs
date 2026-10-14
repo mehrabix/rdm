@@ -198,6 +198,7 @@ fn DownloadsTab() -> Element {
     let connections_label = t("options.downloads.connections");
     let concurrent_label = t("options.downloads.max_concurrent");
     let launch_label = t("options.downloads.launch_on_complete");
+    let reset_prompts = t("options.reset_prompts");
 
     rsx! {
         div { class: "flex flex-col gap-5",
@@ -227,6 +228,25 @@ fn DownloadsTab() -> Element {
                 checked: current.clipboard_monitor,
                 onchange: move |value: bool| settings.update(|s| s.clipboard_monitor = value),
             }
+            Toggle {
+                label: t("options.confirm_downloads"),
+                checked: current.confirm_downloads,
+                onchange: move |value: bool| settings.update(|s| s.confirm_downloads = value),
+            }
+            Toggle {
+                label: t("options.confirm_browser"),
+                checked: current.confirm_browser,
+                onchange: move |value: bool| settings.update(|s| s.confirm_browser = value),
+            }
+            if !current.silent_sources.is_empty() {
+                div { class: "flex items-center gap-3",
+                    Button {
+                        variant: ButtonVariant::Outline,
+                        onclick: move |_| settings.update(|s| s.silent_sources.clear()),
+                        "{reset_prompts}"
+                    }
+                }
+            }
         }
     }
 }
@@ -239,7 +259,6 @@ fn ConnectionTab() -> Element {
 
     let limit_label = t("options.connection.speed_limit");
     let limit_hint = t("options.connection.speed_limit_hint");
-
     rsx! {
         div { class: "flex flex-col gap-5",
             Field { label: limit_label,

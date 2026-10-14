@@ -459,10 +459,17 @@ impl DownloadManager {
             .map(Category::from_filename)
             .unwrap_or(Category::Other);
         let speed_limit = spec.speed_limit;
+        // "Download Later": the task exists (and is visible) but nothing
+        // transfers until it is resumed.
+        let start_paused = spec.start_paused;
         let task = DownloadTask {
             id: id.clone(),
             spec,
-            status: DownloadStatus::Queued,
+            status: if start_paused {
+                DownloadStatus::Paused
+            } else {
+                DownloadStatus::Queued
+            },
             total: None,
             remote: None,
             segments: Vec::new(),
@@ -481,7 +488,9 @@ impl DownloadManager {
             .await
             .insert(id.clone(), Control::new(speed_limit));
         let _ = self.events.send(EngineEvent::Added { task });
-        self.spawn(id.clone());
+        if !start_paused {
+            self.spawn(id.clone());
+        }
         Ok(id)
     }
 
