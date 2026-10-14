@@ -1,8 +1,5 @@
 //! Right-click context menu for a transfer row.
 
-use std::io::Write;
-use std::process::{Command, Stdio};
-
 use dioxus::prelude::*;
 use rdm_core::{DownloadStatus, DownloadTask};
 
@@ -64,7 +61,7 @@ pub fn RowMenu(state: Downloads, task: DownloadTask, pos: Signal<Option<(f64, f6
             MenuRow {
                 label: t("menu.downloads.copy_url"),
                 onclick: move |_| {
-                    clipboard_write(&url);
+                    crate::state::copy_to_clipboard(&url);
                     close(pos);
                 },
             }
@@ -123,23 +120,3 @@ fn Divider() -> Element {
     }
 }
 
-/// Best-effort clipboard write (Wayland first, then X11).
-fn clipboard_write(text: &str) {
-    let writers: [(&str, &[&str]); 2] = [
-        ("wl-copy", &[]),
-        ("xclip", &["-selection", "clipboard"]),
-    ];
-    for (cmd, args) in writers {
-        if let Ok(mut child) = Command::new(cmd)
-            .args(args)
-            .stdin(Stdio::piped())
-            .spawn()
-        {
-            if let Some(mut stdin) = child.stdin.take() {
-                let _ = stdin.write_all(text.as_bytes());
-            }
-            let _ = child.wait();
-            return;
-        }
-    }
-}

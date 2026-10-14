@@ -41,14 +41,22 @@ pub fn BatchDialog(state: Downloads) -> Element {
             return;
         }
         settings.update(|s| s.download_dir = destination.clone());
-        // Batch imports have their own window, so they never confirm twice.
+
+        let mut queue = Vec::new();
         for url in urls {
             let mut pending = PendingDownload::new(url, &current, OfferSource::Batch);
             pending.dir = destination.clone();
-            state.offer(pending, &current);
+            queue.push(pending);
         }
-        let mut open = state.show_batch;
-        open.set(false);
+        // Queue everything from *this* task and close once it is done: a dialog
+        // that closes while the queueing is still pending would have its task
+        // cancelled along with the component.
+        spawn(async move {
+            for pending in queue {
+                state.offer_now(pending, &current).await;
+            }
+            state.close_batch();
+        });
     };
 
     rsx! {

@@ -2,7 +2,7 @@
 //! task list, and the actions the interface can dispatch.
 
 use std::path::PathBuf;
-use std::sync::{Arc, OnceLock};
+use std::sync::{Arc, Mutex as StdMutex, OnceLock};
 use std::time::Duration;
 
 use dioxus::prelude::*;
@@ -47,6 +47,151 @@ pub fn init_gate() -> tokio::sync::mpsc::UnboundedReceiver<DownloadSpec> {
 /// The sender the IPC server needs, available once the app installed the gate.
 pub fn gate_sender() -> Option<tokio::sync::mpsc::UnboundedSender<DownloadSpec>> {
     GATE.get().cloned()
+}
+
+/// The last text this app put on the clipboard itself, so that "Copy link"
+/// does not come straight back through the clipboard monitor as a "detected"
+/// download — the most annoying possible loop.
+static SELF_COPIED: OnceLock<StdMutex<Option<String>>> = OnceLock::new();
+
+fn self_copied_slot() -> &'static StdMutex<Option<String>> {
+    SELF_COPIED.get_or_init(|| StdMutex::new(None))
+}
+
+/// Copy `text` to the system clipboard, and remember it as ours.
+///
+/// Best effort, and X11 first: Wayland's clipboard tools make the compositor
+/// raise a transient popup surface on some setups, while XWayland's `xclip`
+/// serves the same selection without that side effect. A failed write is
+/// harmless — the value is still recorded so the monitor stays quiet.
+pub fn copy_to_clipboard(text: &str) {
+    if let Ok(mut slot) = self_copied_slot().lock() {
+        *slot = Some(text.to_string());
+    }
+
+    let x11: [(&str, &[&str]); 1] = [("xclip", &["-selection", "clipboard"])];
+    let wayland: [(&str, &[&str]); 1] = [("wl-copy", &[])];
+    let writers: Vec<(&str, &[&str])> = if std::env::var_os("DISPLAY").is_some() {
+        x11.iter().chain(wayland.iter()).copied().collect()
+    } else {
+        wayland.iter().chain(x11.iter()).copied().collect()
+    };
+
+    for (cmd, args) in writers {
+        let spawned = std::process::Command::new(cmd)
+            .args(args)
+            .stdin(std::process::Stdio::piped())
+            .spawn();
+        if let Ok(mut child) = spawned {
+            if let Some(mut stdin) = child.stdin.take() {
+                use std::io::Write;
+                let _ = stdin.write_all(text.as_bytes());
+            }
+            let _ = child.wait();
+            return;
+        }
+    }
+}
+
+/// Whether `text` is what this app last copied itself.
+pub fn self_copied(text: &str) -> bool {
+    self_copied_slot()
+        .lock()
+        .map(|slot| slot.as_deref() == Some(text))
+        .unwrap_or(false)
+}
+
+/// URLs cancelled in this session. Asking again about a link the user already
+/// declined is the other annoying half of clipboard capture.
+static DECLINED: OnceLock<StdMutex<Vec<String>>> = OnceLock::new();
+const DECLINED_LIMIT: usize = 200;
+
+fn declined_slot() -> &'static StdMutex<Vec<String>> {
+    DECLINED.get_or_init(|| StdMutex::new(Vec::new()))
+}
+
+/// Remember that the user said no to this URL.
+pub fn decline(url: &str) {
+    if let Ok(mut declined) = declined_slot().lock() {
+        if declined.len() >= DECLINED_LIMIT {
+            declined.remove(0);
+        }
+        if !declined.iter().any(|entry| entry == url) {
+            declined.push(url.to_string());
+        }
+    }
+}
+
+/// Whether the user already declined this URL in this session.
+pub fn is_declined(url: &str) -> bool {
+    declined_slot()
+        .lock()
+        .map(|declined| declined.iter().any(|entry| entry == url))
+        .unwrap_or(false)
+}
+
+/// Whether the confirmation window is already showing this download.
+fn same_offer(open: &PendingDownload, pending: &PendingDownload) -> bool {
+    open.url == pending.url
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::settings::OfferSource;
+
+    fn pending(url: &str, source: OfferSource) -> PendingDownload {
+        PendingDownload {
+            url: url.to_string(),
+            dir: PathBuf::from("/tmp"),
+            file_name: None,
+            queue: "Main".to_string(),
+            connections: 8,
+            referer: None,
+            cookies: None,
+            user_agent: None,
+            content_type: None,
+            height: None,
+            title: None,
+            source,
+        }
+    }
+
+    /// The same link reported twice must not re-open (and reset) the window.
+    #[test]
+    fn the_same_offer_is_recognised_whatever_the_source() {
+        let open = pending("https://example.test/a.mp4", OfferSource::Clipboard);
+        assert!(same_offer(&open, &pending("https://example.test/a.mp4", OfferSource::Browser)));
+        assert!(!same_offer(&open, &pending("https://example.test/b.mp4", OfferSource::Clipboard)));
+    }
+
+    /// Clipboard capture must not fight itself: RDM's own "Copy link" is
+    /// remembered, and a link the user cancelled is not offered again.
+    #[test]
+    fn our_own_copy_and_declined_links_are_remembered() {
+        assert!(!self_copied("https://example.test/a"));
+        copy_to_clipboard("https://example.test/a");
+        assert!(self_copied("https://example.test/a"));
+        assert!(!self_copied("https://example.test/b"), "only the last write counts");
+
+        assert!(!is_declined("https://example.test/declined"));
+        decline("https://example.test/declined");
+        decline("https://example.test/declined");
+        assert!(is_declined("https://example.test/declined"));
+        assert!(!is_declined("https://example.test/other"));
+    }
+
+    /// The declined list is bounded, so a long session cannot grow it forever.
+    #[test]
+    fn the_declined_list_is_capped() {
+        for index in 0..(DECLINED_LIMIT + 10) {
+            decline(&format!("https://example.test/{index}"));
+        }
+        let len = declined_slot().lock().map(|list| list.len()).unwrap_or(0);
+        assert!(len <= DECLINED_LIMIT, "declined list grew to {len}");
+        // The oldest entries were dropped, the newest kept.
+        assert!(is_declined(&format!("https://example.test/{}", DECLINED_LIMIT + 9)));
+    }
 }
 
 /// Left-hand category rail, mirroring IDM's buckets.
@@ -156,6 +301,8 @@ pub struct PendingDownload {
     pub user_agent: Option<String>,
     pub content_type: Option<String>,
     pub height: Option<u32>,
+    /// What the page says the file is called (from the browser).
+    pub title: Option<String>,
     pub source: OfferSource,
 }
 
@@ -178,6 +325,7 @@ impl PendingDownload {
             user_agent: None,
             content_type: None,
             height: None,
+            title: None,
             source,
         }
     }
@@ -196,7 +344,32 @@ impl PendingDownload {
             user_agent: spec.user_agent.clone(),
             content_type: spec.content_type.clone(),
             height: spec.max_height,
+            title: spec.title.clone(),
             source,
+        }
+    }
+
+    /// The name the window starts with: the URL's own name, unless that is a
+    /// route stem (`watch`) and the page told us what the file actually is.
+    pub fn suggested_name(&self) -> String {
+        let from_url = rdm_core::util::filename_from_url(&self.url);
+        let explicit = self.file_name.clone().unwrap_or_default();
+        if !explicit.trim().is_empty() {
+            return explicit;
+        }
+        match &self.title {
+            Some(title) if rdm_core::util::is_generic_stem(&from_url) => {
+                let clean = rdm_core::util::sanitize_filename(title);
+                if clean.is_empty() {
+                    from_url
+                } else {
+                    match rdm_core::util::extension_of(&from_url) {
+                        Some(ext) => format!("{clean}.{ext}"),
+                        None => clean,
+                    }
+                }
+            }
+            _ => from_url,
         }
     }
 
@@ -216,6 +389,7 @@ impl PendingDownload {
         spec.user_agent = self.user_agent.clone();
         spec.content_type = self.content_type.clone();
         spec.max_height = self.height;
+        spec.title = self.title.clone();
         spec.start_paused = later;
         spec
     }
@@ -310,8 +484,12 @@ impl Downloads {
         set(self.grab_selected, if all { urls } else { Vec::new() });
     }
 
-    pub fn open_options(&self) {
-        set(self.show_options, true);
+    pub fn open_options(&self) {        set(self.show_options, true);
+    }
+
+    /// Close the batch-import window (used when its own task finishes).
+    pub fn close_batch(&self) {
+        set(self.show_batch, false);
     }
 
     pub fn close_options(&self) {
@@ -388,12 +566,40 @@ impl Downloads {
 
     // ---- the "Download File Info" window ---------------------------------
 
-    /// Offer a recognized download: open the confirmation window, or queue it
-    /// silently when the source is not confirmed (or has been silenced).
+    /// Offer a recognized download from a long-lived scope (the clipboard loop,
+    /// the browser gate). The decision happens in [`offer_now`](Self::offer_now).
     pub fn offer(&self, pending: PendingDownload, settings: &Settings) {
+        let state = *self;
+        let settings = settings.clone();
+        spawn(async move {
+            state.offer_now(pending, &settings).await;
+        });
+    }
+
+    /// The awaited form of [`offer`](Self::offer).
+    ///
+    /// Dialogs must use this and then close themselves: `spawn` ties a task to
+    /// the component that created it, so a dialog that closes while the queue
+    /// call is still pending would cancel it — which is exactly how "Start
+    /// Download" managed to do nothing.
+    pub async fn offer_now(&self, pending: PendingDownload, settings: &Settings) {
         // Asking twice about the same URL is noise; show the row it already has.
         if let Some(existing) = self.find_by_url(&pending.url) {
             self.select(Some(existing));
+            return;
+        }
+        // The window is already asking about exactly this download. Re-setting
+        // `pending` would reset the fields the user is filling in, so a source
+        // that reports the same link twice (a flapping clipboard read) cannot
+        // make the window loop.
+        let current = self.pending.read().clone();
+        if current.as_ref().is_some_and(|open| same_offer(open, &pending)) {
+            tracing::debug!(url = %pending.url, "already asking about this download");
+            return;
+        }
+        // The user already said no to this link in this session.
+        if is_declined(&pending.url) {
+            tracing::debug!(url = %pending.url, "already declined; not offering again");
             return;
         }
         if settings::should_confirm(settings, pending.source) {
@@ -401,28 +607,36 @@ impl Downloads {
             return;
         }
         let organize = settings.organize_by_category;
-        let state = *self;
-        spawn(async move {
-            if let Err(err) = state.start_pending(pending, organize, false).await {
-                tracing::error!(%err, "could not queue download");
-            }
-        });
+        if let Err(err) = self.try_add_spec(pending.spec(organize, false)).await {
+            tracing::error!(%err, "could not queue download");
+        }
     }
 
     /// Queue the pending download and close the window. `later` is IDM's
     /// "Download Later": the row appears paused until it is resumed.
+    ///
+    /// The download is queued *before* the window closes — clearing `pending`
+    /// first would unmount the component that owns this future and cancel the
+    /// queue call.
     pub async fn start_pending(
         &self,
         pending: PendingDownload,
         organize: bool,
         later: bool,
     ) -> rdm_core::Result<()> {
-        set(self.pending, None);
-        self.try_add_spec(pending.spec(organize, later)).await
+        let result = self.try_add_spec(pending.spec(organize, later)).await;
+        if result.is_ok() {
+            set(self.pending, None);
+        }
+        result
     }
 
-    /// Close the window without queueing anything.
+    /// Close the window without queueing anything — and don't ask about this
+    /// URL again for the rest of the session.
     pub fn dismiss_pending(&self) {
+        if let Some(pending) = self.pending.read().clone() {
+            decline(&pending.url);
+        }
         set(self.pending, None);
     }
 

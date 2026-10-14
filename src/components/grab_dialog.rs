@@ -80,14 +80,16 @@ pub fn GrabDialog(state: Downloads) -> Element {
 
     let download = move |_| {
         let current = settings.get();
-        for url in selected.read().clone() {
-            // The grabber has its own selection window: no second confirmation.
-            let mut pending =
-                PendingDownload::new(url, &current, OfferSource::Grabber);
-            pending.dir = current.download_dir.clone();
-            state.offer(pending, &current);
-        }
-        state.close_grab();
+        let urls = selected.read().clone();
+        // Queue from this task, then close: see `offer_now`.
+        spawn(async move {
+            for url in urls {
+                let mut pending = PendingDownload::new(url, &current, OfferSource::Grabber);
+                pending.dir = current.download_dir.clone();
+                state.offer_now(pending, &current).await;
+            }
+            state.close_grab();
+        });
     };
 
     let found_count = results.read().len();

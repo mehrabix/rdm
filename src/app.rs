@@ -35,6 +35,21 @@ fn apply_theme(mode: &str) {
     let _ = document::eval(&script);
 }
 
+/// Bring RDM to the front. A recognized download must not sit behind a
+/// minimized window — the tray keeps the app alive, so "in the tray" is a normal
+/// state to be pulled out of.
+fn reveal_window() {
+    let desktop = dioxus::desktop::window();
+    let window = &desktop.window;
+    let _ = window.set_minimized(false);
+    let _ = window.set_visible(true);
+    // Focus stealing prevention ignores a bare focus request on some window
+    // managers, so ask to be on top for the moment of the raise.
+    let _ = window.set_always_on_top(true);
+    let _ = window.set_focus();
+    let _ = window.set_always_on_top(false);
+}
+
 #[component]
 pub fn App() -> Element {
     // Settings first: the engine sizes itself from them on first use. A language
@@ -80,6 +95,14 @@ pub fn App() -> Element {
         crate::state::engine().set_speed_limit(current.speed_limit_kbps as u64 * 1024);
     });
 
+    // Something was recognized: come to the front so the window (which is
+    // asking for a decision) is actually seen.
+    use_effect(move || {
+        if state.pending.read().is_some() {
+            reveal_window();
+        }
+    });
+
     // Clipboard monitor: copying a link queues it (IDM's clipboard capture).
     use_future(move || async move {
         let mut last: Option<String> = None;
@@ -99,6 +122,12 @@ pub fn App() -> Element {
             let looks_like_url =
                 trimmed.starts_with("http://") || trimmed.starts_with("https://");
             if is_new && looks_like_url {
+                // "Copy link" in RDM's own menu writes to the same clipboard, so
+                // ignore what we just put there ourselves.
+                if crate::state::self_copied(&trimmed) {
+                    tracing::debug!("ignoring our own clipboard write");
+                    continue;
+                }
                 // A copied link is *offered*, so the window can ask first
                 // (IDM's clipboard capture); silenced sources queue directly.
                 tracing::info!(url = %trimmed, "clipboard link detected");

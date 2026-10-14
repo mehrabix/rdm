@@ -29,10 +29,9 @@ pub fn DownloadDialog(state: Downloads) -> Element {
         return rsx! {};
     };
 
-    let derived = rdm_core::util::filename_from_url(&snapshot.url);
+    let derived = snapshot.suggested_name();
     let mut url = use_signal(|| snapshot.url.clone());
-    let mut file_name =
-        use_signal(|| snapshot.file_name.clone().unwrap_or_else(|| derived.clone()));
+    let mut file_name = use_signal(|| derived.clone());
     let mut dir = use_signal(|| snapshot.dir.to_string_lossy().to_string());
     let mut queue = use_signal(|| snapshot.queue.clone());
     let mut connections = use_signal(|| snapshot.connections.max(1));
@@ -40,7 +39,9 @@ pub fn DownloadDialog(state: Downloads) -> Element {
     let mut probed = use_signal(|| None::<rdm_core::RemoteInfo>);
     let mut checking = use_signal(|| true);
     let mut error = use_signal(|| None::<String>);
-    let mut applied = use_signal(String::new);
+    // Which offer the local fields were filled from. Deliberately *not* a
+    // signal: a reactive one would make the effect below re-run itself.
+    let applied = use_hook(|| std::cell::RefCell::new(String::new()));
 
     // Fill the window for each newly offered download, and probe it so the size
     // and type are real rather than guessed.
@@ -49,10 +50,10 @@ pub fn DownloadDialog(state: Downloads) -> Element {
             return;
         };
         let key = format!("{}|{}", pending.url, pending.source.key());
-        if *applied.read() == key {
+        if *applied.borrow() == key {
             return;
         }
-        applied.set(key);
+        *applied.borrow_mut() = key;
 
         let derived = rdm_core::util::filename_from_url(&pending.url);
         url.set(pending.url.clone());
